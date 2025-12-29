@@ -1,9 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
-
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
 
@@ -26,9 +23,7 @@ async function fetchResponses() {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(
-      `Typeform API error ${res.status}: ${text}`
-    );
+    throw new Error(`Typeform API error ${res.status}: ${text}`);
   }
 
   return res.json();
