@@ -4,8 +4,8 @@ const path = require("path");
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
 
-const APPLICATION_CHANNEL_ID = "PASTE_CHANNEL_ID";
-const PING_ROLE_ID = "PASTE_ROLE_ID";
+const APPLICATION_CHANNEL_ID = "1455058600668954634";
+const PING_ROLE_ID = "1455059336580829359";
 
 // Where we remember the last response we processed
 const STATE_FILE = path.join(__dirname, "lastResponse.json");
