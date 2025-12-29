@@ -10,6 +10,8 @@ const PING_ROLE_ID = "1455059336580829359";
 // Where we remember the last response we processed
 const STATE_FILE = path.join(__dirname, "lastResponse.json");
 
+console.log("Using Typeform token starting with:", TYPEFORM_TOKEN?.slice(0, 8));
+
 async function fetchResponses() {
   const res = await fetch(
     `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`,
