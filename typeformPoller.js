@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
 
@@ -12,7 +15,7 @@ const STATE_FILE = path.join(__dirname, "lastResponse.json");
 
 async function fetchResponses() {
   const res = await fetch(
-    `https://api.typeform.com/forms/${FORM_ID}/responses?page_size=1&sort=submitted_at,desc`,
+    `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`,
     {
       headers: {
         Authorization: `Bearer ${TYPEFORM_TOKEN}`,
