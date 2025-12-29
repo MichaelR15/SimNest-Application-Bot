@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+const typeformPoller = require("./typeformPoller");
+
 const {
   Client,
   GatewayIntentBits,
@@ -88,6 +90,7 @@ client.on("messageCreate", async (message) => {
 // 🔹 REGISTER SLASH COMMAND
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
+    typeformPoller.start(client);
 
   const statusCommand = new SlashCommandBuilder()
     .setName("status")
