@@ -15,14 +15,22 @@ async function fetchResponses() {
     `https://api.typeform.com/forms/${FORM_ID}/responses?page_size=1&sort=submitted_at,desc`,
     {
       headers: {
-        Authorization: `Bearer ${TYPEFORM_TOKEN}`
+        Authorization: `Bearer ${TYPEFORM_TOKEN}`,
+        "Content-Type": "application/json"
       }
     }
   );
 
-  if (!res.ok) throw new Error("Failed to fetch Typeform responses");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Typeform API error ${res.status}: ${text}`
+    );
+  }
+
   return res.json();
 }
+
 
 function getLastResponseId() {
   if (!fs.existsSync(STATE_FILE)) return null;
