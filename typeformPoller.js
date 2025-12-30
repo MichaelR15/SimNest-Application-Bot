@@ -66,13 +66,17 @@ module.exports.start = (client) => {
       const channel = await client.channels.fetch(APPLICATION_CHANNEL_ID);
       if (!channel) return;
 
-      const embed = {
-        title: "📄 New Application",
-        description: "A new staff application has been submitted.",
-        color: 0x5865f2,
-        timestamp: new Date().toISOString()
-      };
+      function getAnswer(answers, fieldId) {
+  const a = answers.find(x => x.field?.id === fieldId);
+  if (!a) return "Not provided";
 
+  return (
+    a.text ||
+    a.choice?.label ||
+    a.choices?.labels?.join(", ") ||
+    "Not provided"
+  );
+}
       await channel.send({
         content: `<@&${PING_ROLE_ID}>`,
         embeds: [embed]

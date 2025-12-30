@@ -111,6 +111,59 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+const {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require("discord.js");
+
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isButton()) return;
+
+  // REVIEW BUTTON
+  if (interaction.customId === "app_review") {
+    const reviewedRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("app_review")
+        .setLabel("Reviewed")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+
+      new ButtonBuilder()
+        .setCustomId("app_deny")
+        .setLabel("Deny")
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(true),
+
+      new ButtonBuilder()
+        .setCustomId("app_next_stage")
+        .setLabel("Move to Next Stage")
+        .setStyle(ButtonStyle.Success)
+    );
+
+    await interaction.update({
+      components: [reviewedRow]
+    });
+  }
+
+  // DENY BUTTON
+  if (interaction.customId === "app_deny") {
+    await interaction.update({
+      content: "❌ Application denied.",
+      components: []
+    });
+  }
+
+  // NEXT STAGE BUTTON
+  if (interaction.customId === "app_next_stage") {
+    await interaction.update({
+      content: "✅ Application moved to the next stage.",
+      components: []
+    });
+  }
+});
+
+
 // 🔐 LOGIN
 client.login(process.env.DISCORD_TOKEN);
 
