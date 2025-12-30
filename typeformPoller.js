@@ -8,7 +8,7 @@ const {
   ButtonStyle
 } = require("discord.js");
 
-const fields = require("./typeformFields");
+const fields = require("./typeformfields");
 
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
