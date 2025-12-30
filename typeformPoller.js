@@ -7,21 +7,29 @@ const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
 const APPLICATION_CHANNEL_ID = "1455058600668954634";
 const PING_ROLE_ID = "1455059336580829359";
 
-// Where we remember the last response we processed
 const STATE_FILE = path.join(__dirname, "lastResponse.json");
 
-console.log("Using Typeform token starting with:", TYPEFORM_TOKEN?.slice(0, 8));
+// 🔎 HARD VALIDATION (important)
+if (!FORM_ID) {
+  throw new Error("TYPEFORM_FORM_ID is not set");
+}
+if (!TYPEFORM_TOKEN) {
+  throw new Error("TYPEFORM_TOKEN is not set");
+}
+
+console.log("Using Typeform token starting with:", TYPEFORM_TOKEN.slice(0, 8));
+console.log("Using Typeform form ID:", FORM_ID);
 
 async function fetchResponses() {
-  const res = await fetch(
-    `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`,
-    {
-      headers: {
-        Authorization: `Bearer ${TYPEFORM_TOKEN}`,
-        "Content-Type": "application/json"
-      }
+  const url = `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${TYPEFORM_TOKEN}`,
+      Accept: "application/json"
     }
-  );
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -31,14 +39,16 @@ async function fetchResponses() {
   return res.json();
 }
 
-
 function getLastResponseId() {
   if (!fs.existsSync(STATE_FILE)) return null;
-  return JSON.parse(fs.readFileSync(STATE_FILE)).lastResponseId;
+  return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")).lastResponseId;
 }
 
 function saveLastResponseId(id) {
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastResponseId: id }));
+  fs.writeFileSync(
+    STATE_FILE,
+    JSON.stringify({ lastResponseId: id }, null, 2)
+  );
 }
 
 module.exports.start = (client) => {
@@ -51,7 +61,6 @@ module.exports.start = (client) => {
       const lastId = getLastResponseId();
       if (latest.response_id === lastId) return;
 
-      // New application detected
       saveLastResponseId(latest.response_id);
 
       const channel = await client.channels.fetch(APPLICATION_CHANNEL_ID);
@@ -60,7 +69,7 @@ module.exports.start = (client) => {
       const embed = {
         title: "📄 New Application",
         description: "A new staff application has been submitted.",
-        color: 0x5865F2,
+        color: 0x5865f2,
         timestamp: new Date().toISOString()
       };
 
@@ -73,5 +82,5 @@ module.exports.start = (client) => {
     } catch (err) {
       console.error("Typeform polling error:", err.message);
     }
-  }, 60 * 1000); // checks every 1 minute
+  }, 60 * 1000);
 };
