@@ -1,14 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require("discord.js");
-
-const fields = require("./typeformfields");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
@@ -16,56 +8,45 @@ const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
 const APPLICATION_CHANNEL_ID = "1455058600668954634";
 const PING_ROLE_ID = "1455059336580829359";
 
+const TYPEFORM_REVIEW_URL =
+  "https://admin.typeform.com/form/Q68IW4Ef/results#insights";
+
 const STATE_FILE = path.join(__dirname, "lastResponse.json");
 
-// 🔎 HARD VALIDATION
-if (!FORM_ID) throw new Error("TYPEFORM_FORM_ID is not set");
-if (!TYPEFORM_TOKEN) throw new Error("TYPEFORM_TOKEN is not set");
+// 🔎 Safety checks
+if (!FORM_ID) throw new Error("TYPEFORM_FORM_ID missing");
+if (!TYPEFORM_TOKEN) throw new Error("TYPEFORM_TOKEN missing");
 
-console.log("Using Typeform token starting with:", TYPEFORM_TOKEN.slice(0, 8));
-console.log("Using Typeform form ID:", FORM_ID);
-
-// --------------------
-// Typeform fetch
-// --------------------
 async function fetchResponses() {
-  const url = `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${TYPEFORM_TOKEN}`,
-      Accept: "application/json"
+  const res = await fetch(
+    `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`,
+    {
+      headers: {
+        Authorization: `Bearer ${TYPEFORM_TOKEN}`,
+        Accept: "application/json"
+      }
     }
-  });
+  );
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Typeform API error ${res.status}: ${text}`);
+    throw new Error(`Typeform API error ${res.status}`);
   }
 
   return res.json();
 }
 
-// --------------------
-// State helpers
-// --------------------
 function getLastResponseId() {
   if (!fs.existsSync(STATE_FILE)) return null;
   return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")).lastResponseId;
 }
 
 function saveLastResponseId(id) {
-  fs.writeFileSync(
-    STATE_FILE,
-    JSON.stringify({ lastResponseId: id }, null, 2)
-  );
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastResponseId: id }, null, 2));
 }
 
-// --------------------
-// Answer helper
-// --------------------
-function getAnswer(answers, fieldId) {
-  const a = answers.find(x => x.field?.id === fieldId);
+// 🔍 Answer helper (uses refs)
+function getAnswer(answers, ref) {
+  const a = answers.find(x => x.field?.ref === ref);
   if (!a) return "Not provided";
 
   return (
@@ -76,9 +57,6 @@ function getAnswer(answers, fieldId) {
   );
 }
 
-// --------------------
-// Poller start
-// --------------------
 module.exports.start = (client) => {
   setInterval(async () => {
     try {
@@ -86,25 +64,13 @@ module.exports.start = (client) => {
       const latest = data.items?.[0];
       if (!latest) return;
 
-      const lastId = getLastResponseId();
-      if (latest.response_id === lastId) return;
-
+      if (latest.response_id === getLastResponseId()) return;
       saveLastResponseId(latest.response_id);
 
       const channel = await client.channels.fetch(APPLICATION_CHANNEL_ID);
       if (!channel) return;
 
-      const answers = latest.answers;
-
-      // ---- Extract answers
-      const name = getAnswer(answers, fields.NAME);
-      const discordTag = getAnswer(answers, fields.DISCORD_USERNAME);
-      const discordId = getAnswer(answers, fields.DISCORD_ID);
-      const role = getAnswer(answers, fields.ROLE_APPLYING_FOR);
-      const motivation = getAnswer(answers, fields.MOTIVATION);
-      const conflict = getAnswer(answers, fields.CONFLICT);
-
-      // ---- Build embed
+      // 📄 Build embed
       const embed = new EmbedBuilder()
         .setTitle("📄 New Staff Application")
         .setColor(0x5865F2)
@@ -112,48 +78,49 @@ module.exports.start = (client) => {
           {
             name: "Applicant Information",
             value:
-              `**Name:** ${name}\n` +
-              `**Discord:** ${discordTag}\n` +
-              `**User ID:** ${discordId}`
+              `**Name:** ${getAnswer(latest.answers, "name")}\n` +
+              `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
+              `**User ID:** ${getAnswer(latest.answers, "discord_id")}`
           },
           {
             name: "Role Applied For",
-            value: role,
-            inline: true
+            value: getAnswer(latest.answers, "role")
           },
           {
             name: "Motivation",
-            value: motivation.slice(0, 1000)
-          },
-          {
-            name: "Conflict Handling",
-            value: conflict.slice(0, 1000)
+            value: getAnswer(latest.answers, "motivation")
           }
         )
-        .setTimestamp()
-        .setFooter({ text: "SimNest Staff Applications" });
+        .setFooter({ text: "SimNest Staff Applications" })
+        .setTimestamp();
 
-      // ---- Buttons
-      const buttons = new ActionRowBuilder().addComponents(
+      // 🔗 Review button (LINK)
+      const reviewRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("app_review")
-          .setLabel("Review")
-          .setStyle(ButtonStyle.Primary),
+          .setLabel("Review Application")
+          .setStyle(ButtonStyle.Link)
+          .setURL(TYPEFORM_REVIEW_URL)
+      );
 
+      // ✅ Action buttons
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("app_accept")
+          .setLabel("Accept")
+          .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId("app_deny")
           .setLabel("Deny")
           .setStyle(ButtonStyle.Danger)
       );
 
-      // ---- Send message
       await channel.send({
         content: `<@&${PING_ROLE_ID}>`,
         embeds: [embed],
-        components: [buttons]
+        components: [reviewRow, actionRow]
       });
 
-      console.log("New application detected and posted.");
+      console.log("✅ New application posted");
     } catch (err) {
       console.error("Typeform polling error:", err.message);
     }

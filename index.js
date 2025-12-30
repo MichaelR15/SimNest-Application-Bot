@@ -102,14 +102,38 @@ client.once("ready", async () => {
 });
 
 // 🔹 SLASH COMMAND HANDLER
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isButton()) return;
 
-  if (interaction.commandName === "status") {
-    const embed = buildStatusEmbed();
-    await interaction.reply({ embeds: [embed] });
+  const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+
+  // ✅ ACCEPT
+  if (interaction.customId === "app_accept") {
+    embed.addFields({
+      name: "Reviewed",
+      value: `Accepted by ${interaction.user}`
+    }).setColor(0x57F287);
+
+    await interaction.update({
+      embeds: [embed],
+      components: []
+    });
+  }
+
+  // ❌ DENY
+  if (interaction.customId === "app_deny") {
+    embed.addFields({
+      name: "Reviewed",
+      value: `Denied by ${interaction.user}`
+    }).setColor(0xED4245);
+
+    await interaction.update({
+      embeds: [embed],
+      components: []
+    });
   }
 });
+
 
 const {
   ActionRowBuilder,
