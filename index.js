@@ -6,7 +6,8 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  SlashCommandBuilder
 } = require("discord.js");
 
 const typeformPoller = require("./typeformPoller");
@@ -19,14 +20,41 @@ const client = new Client({
   ]
 });
 
-// ─────────────────────────────────────────────
-// 🔹 STAGE 2 DM EMBED (Accepted)
-// ─────────────────────────────────────────────
-function buildAcceptedDMComponents(userName) {
+/* ───────────────────────────
+   STATUS EMBED
+─────────────────────────── */
+
+function formatUptime(seconds) {
+  const d = Math.floor(seconds / 86400);
+  seconds %= 86400;
+  const h = Math.floor(seconds / 3600);
+  seconds %= 3600;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds);
+  return `${d}d ${h}h ${m}m ${s}s`;
+}
+
+function buildStatusEmbed() {
+  return new EmbedBuilder()
+    .setTitle("📊 Bot Status")
+    .setColor(0x57f287)
+    .addFields(
+      { name: "Status", value: "Online", inline: true },
+      { name: "Ping", value: `${client.ws.ping}ms`, inline: true },
+      { name: "Uptime", value: formatUptime(process.uptime()), inline: true }
+    )
+    .setTimestamp();
+}
+
+/* ───────────────────────────
+   V2 ACCEPTED DM (COMPONENTS)
+─────────────────────────── */
+
+function buildAcceptedDMComponents(username) {
   return [
     {
       type: 17,
-      accent_color: 0x57F287,
+      accent_color: 0x57f287,
       components: [
         {
           type: 12,
@@ -42,9 +70,9 @@ function buildAcceptedDMComponents(userName) {
         {
           type: 10,
           content:
-            `### Hi ${userName || "there"},\n\n` +
+            `### Hi ${username || "there"},\n\n` +
             "We’re happy to let you know that your application has been **accepted**, and you’ve progressed to **Stage 2** of the SimNest recruitment process.\n\n" +
-            "A member of the management team will contact you shortly with next steps.\n\n" +
+            "A member of the management team will be in touch shortly with next steps.\n\n" +
             "**SimNest**"
         }
       ]
@@ -52,63 +80,95 @@ function buildAcceptedDMComponents(userName) {
   ];
 }
 
+/* ───────────────────────────
+   PREFIX COMMAND
+─────────────────────────── */
 
-// ─────────────────────────────────────────────
-// 🔹 BOT READY
-// ─────────────────────────────────────────────
-client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`);
-  typeformPoller.start(client);
+client.on("messageCreate", async (msg) => {
+  if (msg.author.bot) return;
+  if (msg.content === "-status") {
+    await msg.reply({ embeds: [buildStatusEmbed()] });
+  }
 });
 
-// ─────────────────────────────────────────────
-// 🔹 BUTTON HANDLER
-// ─────────────────────────────────────────────
-client.on("interactionCreate", async interaction => {
+/* ───────────────────────────
+   READY
+─────────────────────────── */
+
+client.once("ready", async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+  typeformPoller.start(client);
+
+  const command = new SlashCommandBuilder()
+    .setName("status")
+    .setDescription("Shows bot status");
+
+  const guild = await client.guilds.fetch(process.env.GUILD_ID);
+  await guild.commands.create(command);
+});
+
+/* ───────────────────────────
+   SLASH COMMAND
+─────────────────────────── */
+
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "status") {
+    await interaction.reply({ embeds: [buildStatusEmbed()] });
+  }
+});
+
+/* ───────────────────────────
+   BUTTON HANDLER (FIXED)
+─────────────────────────── */
+
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
+
+  const [action, applicantId] = interaction.customId.split(":");
+
+  if (!applicantId) {
+    return interaction.reply({
+      content: "❌ Applicant ID missing.",
+      ephemeral: true
+    });
+  }
 
   const embed = EmbedBuilder.from(interaction.message.embeds[0]);
 
-  // Extract Applicant ID from footer
-  const footerText = embed.data.footer?.text || "";
-  const match = footerText.match(/Applicant ID:\s*(\d{17,20})/);
-  const applicantId = match?.[1];
-
-  // ACCEPT
-  if (interaction.customId === "app_accept") {
-    embed
-      .addFields({
-        name: "Reviewed",
-        value: `Accepted by ${interaction.user}`
-      })
-      .setColor(0x57F287);
+  /* ── ACCEPT ── */
+  if (action === "app_accept") {
+    embed.setColor(0x57f287).addFields({
+      name: "Reviewed",
+      value: `Accepted by ${interaction.user}`
+    });
 
     await interaction.update({
       embeds: [embed],
       components: []
     });
 
-    // DM applicant
-    if (applicantId) {
-      try {
-        const user = await client.users.fetch(applicantId);
-        await user.send({
-          embeds: [buildStageTwoDMEmbed(user.username)]
-        });
-      } catch {
-        console.warn(`Could not DM applicant ${applicantId}`);
-      }
+    try {
+      const user = await client.users.fetch(applicantId);
+      await user.send({
+        components: buildAcceptedDMComponents(user.username),
+        flags: 32768
+      });
+    } catch {
+      await interaction.followUp({
+        content: "⚠️ Applicant could not be DMed (manual contact required).",
+        ephemeral: true
+      });
     }
   }
 
-  // DENY
-  if (interaction.customId === "app_deny") {
-    embed
-      .addFields({
-        name: "Reviewed",
-        value: `Denied by ${interaction.user}`
-      })
-      .setColor(0xED4245);
+  /* ── DENY ── */
+  if (action === "app_deny") {
+    embed.setColor(0xed4245).addFields({
+      name: "Reviewed",
+      value: `Denied by ${interaction.user}`
+    });
 
     await interaction.update({
       embeds: [embed],
@@ -117,5 +177,8 @@ client.on("interactionCreate", async interaction => {
   }
 });
 
-// 🔐 LOGIN
+/* ───────────────────────────
+   LOGIN
+─────────────────────────── */
+
 client.login(process.env.DISCORD_TOKEN);
