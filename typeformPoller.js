@@ -175,11 +175,11 @@ module.exports.start = (client) => {
 
       const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("app_accept")
+          .setCustomId(`app_accept:${applicantId}`)
           .setLabel("Accept")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId("app_deny")
+          .setCustomId(`app_deny:${applicantId}`)
           .setLabel("Deny")
           .setStyle(ButtonStyle.Danger)
       );
