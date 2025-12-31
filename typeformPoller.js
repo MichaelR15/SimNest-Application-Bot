@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const fetch = require("node-fetch");
 
 const {
   EmbedBuilder,
@@ -20,13 +21,13 @@ const TYPEFORM_REVIEW_URL =
 const STATE_FILE = path.join(__dirname, "lastResponse.json");
 
 // ─────────────────────────────────────────────
-// 🔹 VALIDATION
+// 🔒 Validation
 // ─────────────────────────────────────────────
 if (!FORM_ID) throw new Error("TYPEFORM_FORM_ID missing");
 if (!TYPEFORM_TOKEN) throw new Error("TYPEFORM_TOKEN missing");
 
 // ─────────────────────────────────────────────
-// 🔹 FETCH RESPONSES
+// 🔹 Fetch latest response
 // ─────────────────────────────────────────────
 async function fetchResponses() {
   const res = await fetch(
@@ -47,7 +48,7 @@ async function fetchResponses() {
 }
 
 // ─────────────────────────────────────────────
-// 🔹 STATE HELPERS
+// 🔹 State helpers
 // ─────────────────────────────────────────────
 function getLastResponseId() {
   if (!fs.existsSync(STATE_FILE)) return null;
@@ -55,11 +56,14 @@ function getLastResponseId() {
 }
 
 function saveLastResponseId(id) {
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastResponseId: id }, null, 2));
+  fs.writeFileSync(
+    STATE_FILE,
+    JSON.stringify({ lastResponseId: id }, null, 2)
+  );
 }
 
 // ─────────────────────────────────────────────
-// 🔹 ANSWER HELPER (USES refs)
+// 🔹 Answer helper (uses refs)
 // ─────────────────────────────────────────────
 function getAnswer(answers, ref) {
   const a = answers.find(x => x.field?.ref === ref);
@@ -74,24 +78,42 @@ function getAnswer(answers, ref) {
 }
 
 // ─────────────────────────────────────────────
-// 🔹 APPLIED DM EMBED
+// 📩 Components V2 — DM (Applied)
 // ─────────────────────────────────────────────
-function buildAppliedDMEmbed(userName) {
-  return new EmbedBuilder()
-    .setImage("https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png")
-    .setColor(13535332)
-    .setDescription(
-      `### Hi ${userName || "there"},\n\n` +
-      "Thanks for applying to join the SimNest staff team — we’re glad you took the time to tell us a bit about yourself.\n\n" +
-      "Your application is now with our team for review, and we’ll be in touch within the next few days. " +
-      "We kindly ask that you don’t message staff to check on your application while reviews are ongoing.\n\n" +
-      "If you’re selected to move forward, we’ll invite you to the next stage of the process.\n\n" +
-      "**SimNest**"
-    );
+function buildAppliedDMComponents(userName) {
+  return [
+    {
+      type: 17,
+      accent_color: 13535332,
+      components: [
+        {
+          type: 12,
+          items: [
+            {
+              type: 2,
+              media: {
+                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
+              }
+            }
+          ]
+        },
+        {
+          type: 10,
+          content:
+            `### Hi ${userName || "there"},\n\n` +
+            "Thanks for applying to join the SimNest staff team — we’re glad you took the time to tell us a bit about yourself.\n\n" +
+            "Your application is now with our team for review, and we’ll be in touch within the next few days. " +
+            "We kindly ask that you don’t message staff to check on your application while reviews are ongoing.\n\n" +
+            "If you’re selected to move forward, we’ll invite you to the next stage of the process.\n\n" +
+            "**SimNest**"
+        }
+      ]
+    }
+  ];
 }
 
 // ─────────────────────────────────────────────
-// 🔹 START POLLER
+// ▶ START POLLER
 // ─────────────────────────────────────────────
 module.exports.start = (client) => {
   setInterval(async () => {
@@ -110,41 +132,26 @@ module.exports.start = (client) => {
       const applicantName = getAnswer(latest.answers, "name");
 
       // ───────── STAFF EMBED ─────────
-      const embed = new EmbedBuilder()
+      const staffEmbed = new EmbedBuilder()
         .setTitle("📄 New Staff Application")
         .setColor(0x5865F2)
         .addFields(
-    {
-      name: "Applicant Information",
-      value:
-        `**Name:** ${getAnswer(latest.answers, "name")}\n` +
-        `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
-        `**User:** <@${getAnswer(latest.answers, "discord_id")}>`
-    },
-    {
-      name: "Role Applied For",
-      value: getAnswer(latest.answers, "role")
-    },
-    {
-      name: "Motivation",
-      value: getAnswer(latest.answers, "motivation")
-    },
-    {
-      name: "Conflict Handling",
-      value: getAnswer(latest.answers, "conflict_handling")
-    },
-    {
-      name: "Moderation Experience",
-      value: getAnswer(latest.answers, "moderation_experience")
-    },
-    {
-      name: "Past Staff Experience",
-      value:
-        `**Communities:** ${getAnswer(latest.answers, "specific_servers")}\n\n` +
-        `**Roles & Responsibilities:** ${getAnswer(latest.answers, "role_details")}\n\n` +
-        `**Challenges Faced:** ${getAnswer(latest.answers, "role_challenges")}`
-    }
-  )
+          {
+            name: "Applicant Information",
+            value:
+              `**Name:** ${applicantName}\n` +
+              `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
+              `**User:** <@${applicantId}>`
+          },
+          {
+            name: "Role Applied For",
+            value: getAnswer(latest.answers, "role")
+          },
+          {
+            name: "Motivation",
+            value: getAnswer(latest.answers, "motivation")
+          }
+        )
         .setFooter({
           text: `SimNest Staff Applications • Applicant ID: ${applicantId}`
         })
@@ -170,23 +177,24 @@ module.exports.start = (client) => {
 
       await channel.send({
         content: `<@&${PING_ROLE_ID}>`,
-        embeds: [embed],
+        embeds: [staffEmbed],
         components: [reviewRow, actionRow]
       });
 
-      // ───────── DM APPLICANT ─────────
+      // ───────── DM APPLICANT (Components V2) ─────────
       if (/^\d{17,20}$/.test(applicantId)) {
         try {
           const user = await client.users.fetch(applicantId);
           await user.send({
-            embeds: [buildAppliedDMEmbed(applicantName)]
+            components: buildAppliedDMComponents(applicantName),
+            flags: 32768
           });
         } catch {
           console.warn(`Could not DM applicant ${applicantId}`);
         }
       }
 
-      console.log("✅ New application processed");
+      console.log("✅ Application processed");
     } catch (err) {
       console.error("Typeform polling error:", err.message);
     }
