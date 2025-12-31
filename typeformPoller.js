@@ -114,22 +114,37 @@ module.exports.start = (client) => {
         .setTitle("📄 New Staff Application")
         .setColor(0x5865F2)
         .addFields(
-          {
-            name: "Applicant Information",
-            value:
-              `**Name:** ${applicantName}\n` +
-              `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
-              `**User:** <@${applicantId}>`
-          },
-          {
-            name: "Role Applied For",
-            value: getAnswer(latest.answers, "role")
-          },
-          {
-            name: "Motivation",
-            value: getAnswer(latest.answers, "motivation")
-          }
-        )
+    {
+      name: "Applicant Information",
+      value:
+        `**Name:** ${getAnswer(latest.answers, "name")}\n` +
+        `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
+        `**User:** <@${getAnswer(latest.answers, "discord_id")}>`
+    },
+    {
+      name: "Role Applied For",
+      value: getAnswer(latest.answers, "role")
+    },
+    {
+      name: "Motivation",
+      value: getAnswer(latest.answers, "motivation")
+    },
+    {
+      name: "Conflict Handling",
+      value: getAnswer(latest.answers, "conflict_handling")
+    },
+    {
+      name: "Moderation Experience",
+      value: getAnswer(latest.answers, "moderation_experience")
+    },
+    {
+      name: "Past Staff Experience",
+      value:
+        `**Communities:** ${getAnswer(latest.answers, "specific_servers")}\n\n` +
+        `**Roles & Responsibilities:** ${getAnswer(latest.answers, "role_details")}\n\n` +
+        `**Challenges Faced:** ${getAnswer(latest.answers, "role_challenges")}`
+    }
+  )
         .setFooter({
           text: `SimNest Staff Applications • Applicant ID: ${applicantId}`
         })
