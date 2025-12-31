@@ -95,16 +95,9 @@ client.on("messageCreate", async (msg) => {
    READY
 ─────────────────────────── */
 
-client.once("ready", async () => {
+client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   typeformPoller.start(client);
-
-  const command = new SlashCommandBuilder()
-    .setName("status")
-    .setDescription("Shows bot status");
-
-  const guild = await client.guilds.fetch(process.env.GUILD_ID);
-  await guild.commands.create(command);
 });
 
 /* ───────────────────────────
