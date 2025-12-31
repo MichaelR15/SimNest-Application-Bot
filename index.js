@@ -22,17 +22,36 @@ const client = new Client({
 // ─────────────────────────────────────────────
 // 🔹 STAGE 2 DM EMBED (Accepted)
 // ─────────────────────────────────────────────
-function buildStageTwoDMEmbed(userName) {
-  return new EmbedBuilder()
-    .setImage("https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png")
-    .setColor(0x57F287)
-    .setDescription(
-      `### Hi ${userName || "there"},\n\n` +
-      "We’re happy to let you know that your application has been **accepted** and you’ve progressed to the next stage of the SimNest recruitment process.\n\n" +
-      "A member of the team will reach out to you soon with further details on what happens next.\n\n" +
-      "**SimNest**"
-    );
+function buildAcceptedDMComponents(userName) {
+  return [
+    {
+      type: 17,
+      accent_color: 0x57F287,
+      components: [
+        {
+          type: 12,
+          items: [
+            {
+              type: 2,
+              media: {
+                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
+              }
+            }
+          ]
+        },
+        {
+          type: 10,
+          content:
+            `### Hi ${userName || "there"},\n\n` +
+            "We’re happy to let you know that your application has been **accepted**, and you’ve progressed to **Stage 2** of the SimNest recruitment process.\n\n" +
+            "A member of the management team will contact you shortly with next steps.\n\n" +
+            "**SimNest**"
+        }
+      ]
+    }
+  ];
 }
+
 
 // ─────────────────────────────────────────────
 // 🔹 BOT READY
