@@ -1,6 +1,11 @@
 const fs = require("fs");
 const path = require("path");
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require("discord.js");
 
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
@@ -70,50 +75,69 @@ module.exports.start = (client) => {
       const channel = await client.channels.fetch(APPLICATION_CHANNEL_ID);
       if (!channel) return;
 
+      console.log(
+  latest.answers.map(a => ({
+    ref: a.field.ref,
+    value: a.text || a.choice?.label
+  }))
+);
+
       // 📄 Build embed
       const embed = new EmbedBuilder()
-        .setTitle("📄 New Staff Application")
-        .setColor(0x5865F2)
-        .addFields(
-          {
-            name: "Applicant Information",
-            value:
-              `**Name:** ${getAnswer(latest.answers, "name")}\n` +
-              `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
-              `**User ID:** ${getAnswer(latest.answers, "discord_id")}`
-          },
-          {
-            name: "Role Applied For",
-            value: getAnswer(latest.answers, "role")
-          },
-          {
-            name: "Motivation",
-            value: getAnswer(latest.answers, "motivation")
-          }
-        )
-        .setFooter({ text: "SimNest Staff Applications" })
-        .setTimestamp();
+  .setTitle("📄 New Staff Application")
+  .setColor(0x5865F2)
+  .addFields(
+    {
+      name: "Applicant Information",
+      value:
+        `**Name:** ${getAnswer(latest.answers, "name")}\n` +
+        `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
+        `**User ID:** ${getAnswer(latest.answers, "discord_id")}`
+    },
+    {
+      name: "Role Applied For",
+      value: getAnswer(latest.answers, "role")
+    },
+    {
+      name: "Motivation",
+      value: getAnswer(latest.answers, "motivation")
+    },
+    {
+      name: "Conflict Handling",
+      value: getAnswer(latest.answers, "conflict_handling")
+    },
+    {
+      name: "Moderation Experience",
+      value: getAnswer(latest.answers, "moderation_experience")
+    },
+    {
+      name: "Past Staff Experience",
+      value:
+        `**Communities:** ${getAnswer(latest.answers, "specific_servers")}\n\n` +
+        `**Roles & Responsibilities:** ${getAnswer(latest.answers, "role_details")}\n\n` +
+        `**Challenges Faced:** ${getAnswer(latest.answers, "role_challenges")}`
+    }
+  )
+  .setFooter({ text: "SimNest Staff Applications" })
+  .setTimestamp();
 
-      // 🔗 Review button (LINK)
-      const reviewRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setLabel("Review Application")
-          .setStyle(ButtonStyle.Link)
-          .setURL(TYPEFORM_REVIEW_URL)
-      );
+  const reviewRow = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setLabel("Review Application")
+    .setStyle(ButtonStyle.Link)
+    .setURL("https://admin.typeform.com/form/Q68IW4Ef/results#insights")
+);
 
-      // ✅ Action buttons
-      const actionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("app_accept")
-          .setLabel("Accept")
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId("app_deny")
-          .setLabel("Deny")
-          .setStyle(ButtonStyle.Danger)
-      );
-
+const actionRow = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setCustomId("app_accept")
+    .setLabel("Accept")
+    .setStyle(ButtonStyle.Success),
+  new ButtonBuilder()
+    .setCustomId("app_deny")
+    .setLabel("Deny")
+    .setStyle(ButtonStyle.Danger));
+    
       await channel.send({
         content: `<@&${PING_ROLE_ID}>`,
         embeds: [embed],
