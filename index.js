@@ -1,13 +1,15 @@
 require("dotenv").config();
 
-const typeformPoller = require("./typeformPoller");
-
 const {
   Client,
   GatewayIntentBits,
   EmbedBuilder,
-  SlashCommandBuilder
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
+
+const typeformPoller = require("./typeformPoller");
 
 const client = new Client({
   intents: [
@@ -17,115 +19,77 @@ const client = new Client({
   ]
 });
 
-// 🧠 Format uptime nicely
-function formatUptime(seconds) {
-  const days = Math.floor(seconds / 86400);
-  seconds %= 86400;
-  const hours = Math.floor(seconds / 3600);
-  seconds %= 3600;
-  const minutes = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-
-  return `${days}d ${hours}h ${minutes}m ${secs}s`;
-}
-
-// 🧱 Build status embed
-function buildStatusEmbed() {
-  const memoryMB = Math.round(
-    process.memoryUsage().heapUsed / 1024 / 1024
-  );
-
+// ─────────────────────────────────────────────
+// 🔹 STAGE 2 DM EMBED (Accepted)
+// ─────────────────────────────────────────────
+function buildStageTwoDMEmbed(userName) {
   return new EmbedBuilder()
-    .setTitle("📊 Bot Status")
-    .setColor(0x57F287) // green
-    .addFields(
-      {
-        name: "🟢 Status",
-        value: "Online",
-        inline: true
-      },
-      {
-        name: "📡 Ping",
-        value: `${client.ws.ping} ms`,
-        inline: true
-      },
-      {
-        name: "⏱️ Uptime",
-        value: formatUptime(process.uptime()),
-        inline: true
-      },
-      {
-        name: "🖥️ Servers",
-        value: `${client.guilds.cache.size}`,
-        inline: true
-      },
-      {
-        name: "💾 Memory",
-        value: `${memoryMB} MB`,
-        inline: true
-      },
-      {
-        name: "⚙️ Versions",
-        value: `Node.js ${process.version}\nDiscord.js ${require("discord.js").version}`,
-        inline: true
-      }
-    )
-    .setFooter({
-      text: client.user.username,
-      iconURL: client.user.displayAvatarURL()
-    })
-    .setTimestamp();
+    .setImage("https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png")
+    .setColor(0x57F287)
+    .setDescription(
+      `### Hi ${userName || "there"},\n\n` +
+      "We’re happy to let you know that your application has been **accepted** and you’ve progressed to the next stage of the SimNest recruitment process.\n\n" +
+      "A member of the team will reach out to you soon with further details on what happens next.\n\n" +
+      "**SimNest**"
+    );
 }
 
-// 🔹 PREFIX COMMAND (-status)
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
-
-  if (message.content === "-status") {
-    const embed = buildStatusEmbed();
-    await message.reply({ embeds: [embed] });
-  }
-});
-
-// 🔹 REGISTER SLASH COMMAND
-client.once("ready", async () => {
+// ─────────────────────────────────────────────
+// 🔹 BOT READY
+// ─────────────────────────────────────────────
+client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-    typeformPoller.start(client);
-
-  const statusCommand = new SlashCommandBuilder()
-    .setName("status")
-    .setDescription("Shows the bot status");
-
-  // 🔴 IMPORTANT: replace with YOUR server ID
-  const guild = await client.guilds.fetch("1295537293939179590");
-  await guild.commands.create(statusCommand);
+  typeformPoller.start(client);
 });
 
-// 🔹 SLASH COMMAND HANDLER
+// ─────────────────────────────────────────────
+// 🔹 BUTTON HANDLER
+// ─────────────────────────────────────────────
 client.on("interactionCreate", async interaction => {
   if (!interaction.isButton()) return;
 
   const embed = EmbedBuilder.from(interaction.message.embeds[0]);
 
-  // ✅ ACCEPT
+  // Extract Applicant ID from footer
+  const footerText = embed.data.footer?.text || "";
+  const match = footerText.match(/Applicant ID:\s*(\d{17,20})/);
+  const applicantId = match?.[1];
+
+  // ACCEPT
   if (interaction.customId === "app_accept") {
-    embed.addFields({
-      name: "Reviewed",
-      value: `Accepted by ${interaction.user}`
-    }).setColor(0x57F287);
+    embed
+      .addFields({
+        name: "Reviewed",
+        value: `Accepted by ${interaction.user}`
+      })
+      .setColor(0x57F287);
 
     await interaction.update({
       embeds: [embed],
       components: []
     });
+
+    // DM applicant
+    if (applicantId) {
+      try {
+        const user = await client.users.fetch(applicantId);
+        await user.send({
+          embeds: [buildStageTwoDMEmbed(user.username)]
+        });
+      } catch {
+        console.warn(`Could not DM applicant ${applicantId}`);
+      }
+    }
   }
 
-  // ❌ DENY
+  // DENY
   if (interaction.customId === "app_deny") {
-    embed.addFields({
-      name: "Reviewed",
-      value: `Denied by ${interaction.user}`
-    }).setColor(0xED4245);
+    embed
+      .addFields({
+        name: "Reviewed",
+        value: `Denied by ${interaction.user}`
+      })
+      .setColor(0xED4245);
 
     await interaction.update({
       embeds: [embed],
@@ -133,61 +97,6 @@ client.on("interactionCreate", async interaction => {
     });
   }
 });
-
-
-const {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require("discord.js");
-
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isButton()) return;
-
-  // REVIEW BUTTON
-  if (interaction.customId === "app_review") {
-    const reviewedRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("app_review")
-        .setLabel("Reviewed")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true),
-
-      new ButtonBuilder()
-        .setCustomId("app_deny")
-        .setLabel("Deny")
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(true),
-
-      new ButtonBuilder()
-        .setCustomId("app_next_stage")
-        .setLabel("Move to Next Stage")
-        .setStyle(ButtonStyle.Success)
-    );
-
-    await interaction.update({
-      components: [reviewedRow]
-    });
-  }
-
-  // DENY BUTTON
-  if (interaction.customId === "app_deny") {
-    await interaction.update({
-      content: "❌ Application denied.",
-      components: []
-    });
-  }
-
-  // NEXT STAGE BUTTON
-  if (interaction.customId === "app_next_stage") {
-    await interaction.update({
-      content: "✅ Application moved to the next stage.",
-      components: []
-    });
-  }
-});
-
 
 // 🔐 LOGIN
 client.login(process.env.DISCORD_TOKEN);
-
