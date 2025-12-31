@@ -92,7 +92,7 @@ module.exports.start = (client) => {
       value:
         `**Name:** ${getAnswer(latest.answers, "name")}\n` +
         `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
-        `**User ID:** ${getAnswer(latest.answers, "discord_id")}`
+        `**User:** <@${getAnswer(latest.answers, "discord_id")}>`
     },
     {
       name: "Role Applied For",
