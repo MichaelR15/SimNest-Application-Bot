@@ -19,14 +19,11 @@ const TYPEFORM_REVIEW_URL =
 
 const STATE_FILE = path.join(__dirname, "lastResponse.json");
 
-// ─────────────────────────────────────────────
-// 🔒 Validation
-// ─────────────────────────────────────────────
 if (!FORM_ID) throw new Error("TYPEFORM_FORM_ID missing");
 if (!TYPEFORM_TOKEN) throw new Error("TYPEFORM_TOKEN missing");
 
 // ─────────────────────────────────────────────
-// 🔹 Fetch latest response
+// 🔹 FETCH TYPEFORM RESPONSES
 // ─────────────────────────────────────────────
 async function fetchResponses() {
   const res = await fetch(
@@ -47,7 +44,7 @@ async function fetchResponses() {
 }
 
 // ─────────────────────────────────────────────
-// 🔹 State helpers
+// 🔹 STATE
 // ─────────────────────────────────────────────
 function getLastResponseId() {
   if (!fs.existsSync(STATE_FILE)) return null;
@@ -55,14 +52,11 @@ function getLastResponseId() {
 }
 
 function saveLastResponseId(id) {
-  fs.writeFileSync(
-    STATE_FILE,
-    JSON.stringify({ lastResponseId: id }, null, 2)
-  );
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastResponseId: id }, null, 2));
 }
 
 // ─────────────────────────────────────────────
-// 🔹 Answer helper (uses refs)
+// 🔹 ANSWER HELPER
 // ─────────────────────────────────────────────
 function getAnswer(answers, ref) {
   const a = answers.find(x => x.field?.ref === ref);
@@ -77,7 +71,7 @@ function getAnswer(answers, ref) {
 }
 
 // ─────────────────────────────────────────────
-// 📩 Components V2 — DM (Applied)
+// 📩 DM — RECEIVED (COMPONENTS V2)
 // ─────────────────────────────────────────────
 function buildAppliedDMComponents(userName) {
   return [
@@ -102,7 +96,7 @@ function buildAppliedDMComponents(userName) {
             `### Hi ${userName || "there"},\n\n` +
             "Thanks for applying to join the SimNest staff team — we’re glad you took the time to tell us a bit about yourself.\n\n" +
             "Your application is now with our team for review, and we’ll be in touch within the next few days. " +
-            "We kindly ask that you don’t message staff to check on your application while reviews are ongoing.\n\n" +
+            "Please don’t message staff to check on your application while reviews are ongoing.\n\n" +
             "If you’re selected to move forward, we’ll invite you to the next stage of the process.\n\n" +
             "**SimNest**"
         }
@@ -130,7 +124,7 @@ module.exports.start = (client) => {
       const applicantId = getAnswer(latest.answers, "discord_id");
       const applicantName = getAnswer(latest.answers, "name");
 
-      // ───────── STAFF EMBED ─────────
+      // ───────── STAFF EMBED (ALL QUESTIONS) ─────────
       const staffEmbed = new EmbedBuilder()
         .setTitle("📄 New Staff Application")
         .setColor(0x5865F2)
@@ -139,16 +133,32 @@ module.exports.start = (client) => {
             name: "Applicant Information",
             value:
               `**Name:** ${applicantName}\n` +
-              `**Discord:** ${getAnswer(latest.answers, "discord_username")}\n` +
-              `**User:** <@${applicantId}>`
+              `**Discord Username:** ${getAnswer(latest.answers, "discord_username")}\n` +
+              `**User:** <@${applicantId}>\n` +
+              `**Country:** ${getAnswer(latest.answers, "country")}\n` +
+              `**Timezone:** ${getAnswer(latest.answers, "timezone")}`
           },
           {
-            name: "Role Applied For",
-            value: getAnswer(latest.answers, "role")
+            name: "Role & Motivation",
+            value:
+              `**Role Applied For:** ${getAnswer(latest.answers, "role")}\n\n` +
+              `**Motivation:**\n${getAnswer(latest.answers, "motivation")}`
           },
           {
-            name: "Motivation",
-            value: getAnswer(latest.answers, "motivation")
+            name: "Conflict Handling",
+            value: getAnswer(latest.answers, "conflict_handling")
+          },
+          {
+            name: "Moderation Experience",
+            value: getAnswer(latest.answers, "moderation_experience")
+          },
+          {
+            name: "Past Staff Experience",
+            value:
+              `**Previous Experience:** ${getAnswer(latest.answers, "role_experience")}\n\n` +
+              `**Servers:** ${getAnswer(latest.answers, "specific_servers")}\n\n` +
+              `**Roles & Permissions:** ${getAnswer(latest.answers, "role_details")}\n\n` +
+              `**Challenges Faced:** ${getAnswer(latest.answers, "role_challenges")}`
           }
         )
         .setFooter({
@@ -180,7 +190,7 @@ module.exports.start = (client) => {
         components: [reviewRow, actionRow]
       });
 
-      // ───────── DM APPLICANT (Components V2) ─────────
+      // ───────── DM APPLICANT (V2) ─────────
       if (/^\d{17,20}$/.test(applicantId)) {
         try {
           const user = await client.users.fetch(applicantId);
