@@ -8,6 +8,10 @@ const {
   ButtonStyle
 } = require("discord.js");
 
+const {
+  buildAppliedDMComponents
+} = require("./Embeds");
+
 const FORM_ID = process.env.TYPEFORM_FORM_ID;
 const TYPEFORM_TOKEN = process.env.TYPEFORM_TOKEN;
 
@@ -22,9 +26,10 @@ const STATE_FILE = path.join(__dirname, "lastResponse.json");
 if (!FORM_ID) throw new Error("TYPEFORM_FORM_ID missing");
 if (!TYPEFORM_TOKEN) throw new Error("TYPEFORM_TOKEN missing");
 
-// ─────────────────────────────────────────────
-// 🔹 FETCH TYPEFORM RESPONSES
-// ─────────────────────────────────────────────
+/* ───────────────────────────
+   FETCH TYPEFORM RESPONSES
+─────────────────────────── */
+
 async function fetchResponses() {
   const res = await fetch(
     `https://api.typeform.com/forms/${FORM_ID}/responses?completed=true&page_size=1&sort=submitted_at,desc`,
@@ -43,9 +48,10 @@ async function fetchResponses() {
   return res.json();
 }
 
-// ─────────────────────────────────────────────
-// 🔹 STATE
-// ─────────────────────────────────────────────
+/* ───────────────────────────
+   STATE
+─────────────────────────── */
+
 function getLastResponseId() {
   if (!fs.existsSync(STATE_FILE)) return null;
   return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")).lastResponseId;
@@ -55,9 +61,10 @@ function saveLastResponseId(id) {
   fs.writeFileSync(STATE_FILE, JSON.stringify({ lastResponseId: id }, null, 2));
 }
 
-// ─────────────────────────────────────────────
-// 🔹 ANSWER HELPER
-// ─────────────────────────────────────────────
+/* ───────────────────────────
+   ANSWER HELPER
+─────────────────────────── */
+
 function getAnswer(answers, ref) {
   const a = answers.find(x => x.field?.ref === ref);
   if (!a) return "Not provided";
@@ -70,44 +77,10 @@ function getAnswer(answers, ref) {
   );
 }
 
-// ─────────────────────────────────────────────
-// 📩 DM — RECEIVED (COMPONENTS V2)
-// ─────────────────────────────────────────────
-function buildAppliedDMComponents(userName) {
-  return [
-    {
-      type: 17,
-      accent_color: 13535332,
-      components: [
-        {
-          type: 12,
-          items: [
-            {
-              type: 2,
-              media: {
-                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
-              }
-            }
-          ]
-        },
-        {
-          type: 10,
-          content:
-            `### Hi ${userName || "there"},\n\n` +
-            "Thanks for applying to join the SimNest staff team — we’re glad you took the time to tell us a bit about yourself.\n\n" +
-            "Your application is now with our team for review, and we’ll be in touch within the next few days. " +
-            "Please don’t message staff to check on your application while reviews are ongoing.\n\n" +
-            "If you’re selected to move forward, we’ll invite you to the next stage of the process.\n\n" +
-            "**SimNest**"
-        }
-      ]
-    }
-  ];
-}
+/* ───────────────────────────
+   START POLLER
+─────────────────────────── */
 
-// ─────────────────────────────────────────────
-// ▶ START POLLER
-// ─────────────────────────────────────────────
 module.exports.start = (client) => {
   setInterval(async () => {
     try {
@@ -124,7 +97,6 @@ module.exports.start = (client) => {
       const applicantId = getAnswer(latest.answers, "discord_id");
       const applicantName = getAnswer(latest.answers, "name");
 
-      // ───────── STAFF EMBED (ALL QUESTIONS) ─────────
       const staffEmbed = new EmbedBuilder()
         .setTitle("📄 New Staff Application")
         .setColor(0x5865F2)
@@ -190,7 +162,6 @@ module.exports.start = (client) => {
         components: [reviewRow, actionRow]
       });
 
-      // ───────── DM APPLICANT (V2) ─────────
       if (/^\d{17,20}$/.test(applicantId)) {
         try {
           const user = await client.users.fetch(applicantId);

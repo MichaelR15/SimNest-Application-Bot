@@ -1,20 +1,18 @@
 require("dotenv").config();
 
 const express = require("express");
+const {
+  Client,
+  GatewayIntentBits,
+  EmbedBuilder
+} = require("discord.js");
 
-const app = express();
-app.use(express.json());
+const typeformPoller = require("./typeform");
+const tallyWebhook = require("./tallywebhook");
 
-app.post("/tally", (req, res) => {
-  console.log("🟢 TALLY WEBHOOK HIT");
-  console.log(JSON.stringify(req.body, null, 2));
-  res.send("OK");
-});
-
-app.listen(process.env.PORT || 8080, () => {
-  console.log("🌐 Webhook server listening");
-});
-
+const {
+  buildStage2InviteDM
+} = require("./Embeds");
 
 /* ───────────────────────────
    DISCORD CLIENT
@@ -30,35 +28,15 @@ const client = new Client({
 });
 
 /* ───────────────────────────
-   EXPRESS (TALLY WEBHOOK)
+   EXPRESS SERVER
 ─────────────────────────── */
 
+const app = express();
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/", (_, res) => res.send("OK"));
 
-app.post("/tally", async (req, res) => {
-  try {
-    if (req.query.key !== process.env.TALLY_WEBHOOK_KEY) {
-      return res.status(401).send("Unauthorized");
-    }
-
-    await handleTallyWebhook(client, {
-      payload: req.body,
-      buildAssessmentPassedDM,
-      buildAssessmentFailedDM
-    });
-
-    res.send("OK");
-  } catch (err) {
-    console.error("[TALLY WEBHOOK ERROR]", err);
-    res.send("OK"); // prevent retries
-  }
-});
-
-app.listen(process.env.PORT || 8080, () => {
-  console.log("🌐 Webhook server listening");
-});
+app.use("/", tallyWebhook(client));
 
 /* ───────────────────────────
    STATUS EMBED
@@ -84,139 +62,6 @@ function buildStatusEmbed() {
       { name: "Uptime", value: formatUptime(process.uptime()), inline: true }
     )
     .setTimestamp();
-}
-
-/* ───────────────────────────
-   COMPONENTS V2 EMBEDS
-─────────────────────────── */
-
-// APPLIED (unchanged)
-function buildAppliedDMComponents(username) {
-  return [
-    {
-      type: 17,
-      accent_color: 13535332,
-      components: [
-        {
-          type: 12,
-          items: [
-            {
-              type: 2,
-              media: {
-                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
-              }
-            }
-          ]
-        },
-        {
-          type: 10,
-          content:
-            `### Hi ${username || "there"},\n\n` +
-            "Thanks for applying to join the SimNest staff team — we’re glad you took the time to tell us a bit about yourself.\n\n" +
-            "Your application is now with our team for review. Please don’t message staff to check on progress.\n\n" +
-            "If selected, we’ll invite you to the next stage.\n\n" +
-            "**SimNest**"
-        }
-      ]
-    }
-  ];
-}
-
-// STAGE 2 (TALLY)
-function buildStage2InviteDM(username) {
-  return [
-    {
-      type: 17,
-      accent_color: 0x57f287,
-      components: [
-        {
-          type: 12,
-          items: [
-            {
-              type: 2,
-              media: {
-                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
-              }
-            }
-          ]
-        },
-        {
-          type: 10,
-          content:
-            `### Hi ${username || "there"},\n\n` +
-            "Your application has been **accepted** and you’ve progressed to **Stage 2**.\n\n" +
-            "**Please complete the assessment below:**\n\n" +
-            "👉 https://tally.so/r/zxyN5k\n\n" +
-            "Once complete, we’ll review your results.\n\n" +
-            "**SimNest**"
-        }
-      ]
-    }
-  ];
-}
-
-// ASSESSMENT PASSED
-function buildAssessmentPassedDM(username) {
-  return [
-    {
-      type: 17,
-      accent_color: 0x57f287,
-      components: [
-        {
-          type: 12,
-          items: [
-            {
-              type: 2,
-              media: {
-                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
-              }
-            }
-          ]
-        },
-        {
-          type: 10,
-          content:
-            `### Hi ${username || "there"},\n\n` +
-            "You’ve **passed the assessment** 🎉\n\n" +
-            "The next phase will be a **short conversation** with members of the **Directive / Owner team**.\n\n" +
-            "You’ll be added to a chat shortly.\n\n" +
-            "**SimNest**"
-        }
-      ]
-    }
-  ];
-}
-
-// ASSESSMENT FAILED
-function buildAssessmentFailedDM(username) {
-  return [
-    {
-      type: 17,
-      accent_color: 0xed4245,
-      components: [
-        {
-          type: 12,
-          items: [
-            {
-              type: 2,
-              media: {
-                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
-              }
-            }
-          ]
-        },
-        {
-          type: 10,
-          content:
-            `### Hi ${username || "there"},\n\n` +
-            "Thanks for completing the assessment.\n\n" +
-            "Unfortunately, you haven’t progressed further on this occasion.\n\n" +
-            "We appreciate the effort you put in and wish you the best going forward.\n\n" +
-            "**SimNest**"
-        }
-      ]
-    }
-  ];
 }
 
 /* ───────────────────────────
@@ -284,7 +129,16 @@ client.once("ready", () => {
 });
 
 /* ───────────────────────────
-   LOGIN
+   START
 ─────────────────────────── */
 
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🌐 Webhook server listening on ${PORT}`);
+});
+
 client.login(process.env.DISCORD_TOKEN);
+
+/* ───────────────────────────
+   END
+─────────────────────────── */
