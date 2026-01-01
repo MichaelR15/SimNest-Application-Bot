@@ -7,7 +7,7 @@ const {
   EmbedBuilder
 } = require("discord.js");
 
-const typeformPoller = require("./typeform");
+const typeformPoller = require("./typeformPoller");
 const tallyWebhook = require("./tallywebhook");
 
 const {
