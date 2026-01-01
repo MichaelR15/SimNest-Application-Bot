@@ -1,23 +1,20 @@
 require("dotenv").config();
 
 const express = require("express");
-const {
-  Client,
-  GatewayIntentBits,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require("discord.js");
 
-const typeformPoller = require("./typeformPoller");
-const { handleTallyWebhook } = require("./tallyWebhook");
+const app = express();
+app.use(express.json());
 
 app.post("/tally", (req, res) => {
   console.log("🟢 TALLY WEBHOOK HIT");
   console.log(JSON.stringify(req.body, null, 2));
   res.send("OK");
 });
+
+app.listen(process.env.PORT || 8080, () => {
+  console.log("🌐 Webhook server listening");
+});
+
 
 /* ───────────────────────────
    DISCORD CLIENT
@@ -36,7 +33,6 @@ const client = new Client({
    EXPRESS (TALLY WEBHOOK)
 ─────────────────────────── */
 
-const app = express();
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/", (_, res) => res.send("OK"));
