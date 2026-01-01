@@ -8,7 +8,7 @@ const {
 } = require("discord.js");
 
 const typeformPoller = require("./typeformPoller");
-const tallyWebhook = require("./tallywebhook");
+const tallyWebhook = require("./tallyWebhook");
 
 const {
   buildStage2InviteDM
