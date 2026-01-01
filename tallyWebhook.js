@@ -12,6 +12,8 @@ const PASS_MARK = Number(process.env.TALLY_PASS_SCORE || 7);
 
 module.exports = (client) => {
 router.post("/tally", async (req, res) => {
+  console.log("🟢 TALLY ROUTE HIT");
+
   try {
     const data = req.body;
 
