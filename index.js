@@ -11,7 +11,7 @@ const {
 } = require("discord.js");
 
 const typeformPoller = require("./typeformPoller");
-const { handleTallyWebhook } = require("./tallywebhook");
+const { handleTallyWebhook } = require("./tallyWebhook");
 
 /* ───────────────────────────
    DISCORD CLIENT
