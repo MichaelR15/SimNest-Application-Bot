@@ -1,26 +1,62 @@
 require("dotenv").config();
 
 const express = require("express");
-
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
 
 const typeformPoller = require("./typeformPoller");
-const { handleTallyWebhook } = require("./tallyWebhook");
+const { handleTallyWebhook } = require("./tallywebhook");
+
+/* ───────────────────────────
+   DISCORD CLIENT
+─────────────────────────── */
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages
   ]
 });
 
-const tallyRouter = require("./tallyWebhook")(client);
-app.use(tallyRouter);
+/* ───────────────────────────
+   EXPRESS (TALLY WEBHOOK)
+─────────────────────────── */
+
+const app = express();
+app.use(express.json({ limit: "2mb" }));
+
+app.get("/", (_, res) => res.send("OK"));
+
+app.post("/tally", async (req, res) => {
+  try {
+    if (req.query.key !== process.env.TALLY_WEBHOOK_KEY) {
+      return res.status(401).send("Unauthorized");
+    }
+
+    await handleTallyWebhook(client, {
+      payload: req.body,
+      buildAssessmentPassedDM,
+      buildAssessmentFailedDM
+    });
+
+    res.send("OK");
+  } catch (err) {
+    console.error("[TALLY WEBHOOK ERROR]", err);
+    res.send("OK"); // prevent retries
+  }
+});
+
+app.listen(process.env.PORT || 8080, () => {
+  console.log("🌐 Webhook server listening");
+});
 
 /* ───────────────────────────
    STATUS EMBED
@@ -52,7 +88,7 @@ function buildStatusEmbed() {
    COMPONENTS V2 EMBEDS
 ─────────────────────────── */
 
-// 1️⃣ APPLIED (UNCHANGED)
+// APPLIED (unchanged)
 function buildAppliedDMComponents(username) {
   return [
     {
@@ -75,8 +111,8 @@ function buildAppliedDMComponents(username) {
           content:
             `### Hi ${username || "there"},\n\n` +
             "Thanks for applying to join the SimNest staff team — we’re glad you took the time to tell us a bit about yourself.\n\n" +
-            "Your application is now with our team for review, and we’ll be in touch within the next few days. We kindly ask that you don’t message staff to check on your application while reviews are ongoing.\n\n" +
-            "If you’re selected to move forward, we’ll invite you to the next stage of the process.\n\n" +
+            "Your application is now with our team for review. Please don’t message staff to check on progress.\n\n" +
+            "If selected, we’ll invite you to the next stage.\n\n" +
             "**SimNest**"
         }
       ]
@@ -84,7 +120,7 @@ function buildAppliedDMComponents(username) {
   ];
 }
 
-// 2️⃣ ACCEPTED → STAGE 2 (TALLY)
+// STAGE 2 (TALLY)
 function buildStage2InviteDM(username) {
   return [
     {
@@ -106,10 +142,10 @@ function buildStage2InviteDM(username) {
           type: 10,
           content:
             `### Hi ${username || "there"},\n\n` +
-            "We’re happy to let you know that your application has been **accepted**, and you’ve progressed to **Stage 2** of the SimNest recruitment process.\n\n" +
-            "**Next step:** please complete the short assessment using the link below:\n\n" +
-            "👉 **https://tally.so/r/zxyN5k**\n\n" +
-            "Once completed, we’ll review your responses and update you.\n\n" +
+            "Your application has been **accepted** and you’ve progressed to **Stage 2**.\n\n" +
+            "**Please complete the assessment below:**\n\n" +
+            "👉 https://tally.so/r/zxyN5k\n\n" +
+            "Once complete, we’ll review your results.\n\n" +
             "**SimNest**"
         }
       ]
@@ -117,7 +153,7 @@ function buildStage2InviteDM(username) {
   ];
 }
 
-// 3️⃣ ASSESSMENT PASSED
+// ASSESSMENT PASSED
 function buildAssessmentPassedDM(username) {
   return [
     {
@@ -139,9 +175,9 @@ function buildAssessmentPassedDM(username) {
           type: 10,
           content:
             `### Hi ${username || "there"},\n\n` +
-            "Thanks for completing the assessment — you’ve **successfully passed** this stage of the process.\n\n" +
-            "The next phase will be a **short conversation** with members of the **Directive / Owner team**. You’ll be added to a chat shortly so this can take place.\n\n" +
-            "We look forward to speaking with you.\n\n" +
+            "You’ve **passed the assessment** 🎉\n\n" +
+            "The next phase will be a **short conversation** with members of the **Directive / Owner team**.\n\n" +
+            "You’ll be added to a chat shortly.\n\n" +
             "**SimNest**"
         }
       ]
@@ -149,7 +185,7 @@ function buildAssessmentPassedDM(username) {
   ];
 }
 
-// 4️⃣ ASSESSMENT FAILED
+// ASSESSMENT FAILED
 function buildAssessmentFailedDM(username) {
   return [
     {
@@ -171,9 +207,9 @@ function buildAssessmentFailedDM(username) {
           type: 10,
           content:
             `### Hi ${username || "there"},\n\n` +
-            "Thanks for taking the time to complete the assessment.\n\n" +
-            "After reviewing your responses, we’re unable to progress your application further on this occasion.\n\n" +
-            "We appreciate the effort you put into applying and wish you all the best moving forward.\n\n" +
+            "Thanks for completing the assessment.\n\n" +
+            "Unfortunately, you haven’t progressed further on this occasion.\n\n" +
+            "We appreciate the effort you put in and wish you the best going forward.\n\n" +
             "**SimNest**"
         }
       ]
@@ -193,16 +229,7 @@ client.on("messageCreate", async (msg) => {
 });
 
 /* ───────────────────────────
-   READY
-─────────────────────────── */
-
-client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`);
-  typeformPoller.start(client);
-});
-
-/* ───────────────────────────
-   BUTTON HANDLER (ACCEPT / DENY)
+   BUTTON HANDLER
 ─────────────────────────── */
 
 client.on("interactionCreate", async (interaction) => {
@@ -246,36 +273,13 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 /* ───────────────────────────
-   TALLY WEBHOOK SERVER
+   READY
 ─────────────────────────── */
 
-const app = express();
-app.use(express.json({ limit: "2mb" }));
-
-app.get("/", (_, res) => res.send("OK"));
-
-app.post("/tally", async (req, res) => {
-  try {
-    if (req.query.key !== process.env.TALLY_WEBHOOK_KEY) {
-      return res.status(401).send("Unauthorized");
-    }
-
-    await handleTallyWebhook(client, {
-      payload: req.body,
-      buildAssessmentPassedDM,
-      buildAssessmentFailedDM
-    });
-
-    res.send("OK");
-  } catch (e) {
-    console.error("[TALLY]", e);
-    res.send("OK");
-  }
+client.once("ready", () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+  typeformPoller.start(client);
 });
-
-app.listen(process.env.PORT || 8080, () =>
-  console.log("Webhook server ready")
-);
 
 /* ───────────────────────────
    LOGIN
