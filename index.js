@@ -1,4 +1,5 @@
 require("dotenv").config();
+const express = require("express");
 
 const {
   Client,
@@ -19,6 +20,18 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+const app = express();
+app.use(express.json());
+
+const tallyWebhook = require("./tallyWebhook")(client);
+app.use("/", tallyWebhook);
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Webhook server running on port ${PORT}`);
+});
+
 
 /* ───────────────────────────
    STATUS EMBED
