@@ -19,13 +19,14 @@ module.exports = (client) => {
         console.warn("[TALLY] Missing fields payload");
         return res.sendStatus(200);
       }
+      
+const answers = data.data.answers || [];
 
-// Convert Tally fields into key/value object
-const fields = Object.fromEntries(
-  data.data.fields.map(f => [f.ref || f.key, f.value])
+const discordAnswer = answers.find(
+  a => a.field?.ref === "discord_id"
 );
 
-const discordId = fields.discord_id;
+const discordId = discordAnswer?.text;
 
 // 🔍 DEBUG — TEMPORARY
 console.log("TALLY FIELDS:", Object.keys(fields));
