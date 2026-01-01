@@ -15,13 +15,12 @@ router.post("/tally", async (req, res) => {
   try {
     const data = req.body;
 
-    if (!data?.data?.answers) {
-      console.warn("[TALLY] Missing answers payload");
-      return res.sendStatus(200);
-    }
+        const answers = data.answers || [];
 
-    // ── EXTRACT DISCORD ID FROM ANSWERS ──
-    const answers = data.data.answers;
+        if (!answers.length) {
+        console.warn("[TALLY] Missing answers payload");
+        return res.sendStatus(200);
+        }
 
     const discordAnswer = answers.find(
       a => a.field?.ref === "discord_id"
