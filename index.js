@@ -10,8 +10,20 @@ const {
   ButtonStyle
 } = require("discord.js");
 
+app.post("/tally", (req, res) => {
+  console.log("🟢 TALLY WEBHOOK HIT");
+  console.log(JSON.stringify(req.body, null, 2));
+  res.send("OK");
+});
+
 const typeformPoller = require("./typeformPoller");
 const { handleTallyWebhook } = require("./tallyWebhook");
+
+app.post("/tally", (req, res) => {
+  console.log("🟢 TALLY WEBHOOK HIT");
+  console.log(JSON.stringify(req.body, null, 2));
+  res.send("OK");
+});
 
 /* ───────────────────────────
    DISCORD CLIENT
