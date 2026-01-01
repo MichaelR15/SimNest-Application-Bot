@@ -22,13 +22,13 @@ module.exports = (client) => {
 
 // Convert Tally fields into key/value object
 const fields = Object.fromEntries(
-  data.data.fields.map(f => [f.key, f.value])
+  data.data.fields.map(f => [f.ref || f.key, f.value])
 );
+
+const discordId = fields.discord_id;
 
 // 🔍 DEBUG — TEMPORARY
 console.log("TALLY FIELDS:", Object.keys(fields));
-
-const discordId = fields.discord_id;
 
 if (!discordId || !/^\d{17,20}$/.test(discordId)) {
   console.warn("[TALLY] Invalid or missing discord_id");
