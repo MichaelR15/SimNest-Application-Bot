@@ -15,23 +15,27 @@ router.post("/tally", async (req, res) => {
   try {
     const data = req.body;
 
-        const answers = data.answers || [];
+const fieldsArray = data?.data?.fields;
 
-        if (!answers.length) {
-        console.warn("[TALLY] Missing answers payload");
-        return res.sendStatus(200);
-        }
+if (!Array.isArray(fieldsArray)) {
+  console.warn("[TALLY] Missing fields payload");
+  return res.sendStatus(200);
+}
 
-    const discordAnswer = answers.find(
-      a => a.field?.ref === "discord_id"
-    );
+// Build a map of ref → value (fallback to key)
+const fields = Object.fromEntries(
+  fieldsArray.map(f => [
+    f.ref || f.key,
+    f.value
+  ])
+);
 
-    const discordId = discordAnswer?.text?.trim();
+const discordId = String(fields.discord_id || "").trim();
 
-    if (!discordId || !/^\d{17,20}$/.test(discordId)) {
-      console.warn("[TALLY] Invalid or missing discord_id");
-      return res.sendStatus(200);
-    }
+if (!discordId || !/^\d{17,20}$/.test(discordId)) {
+  console.warn("[TALLY] Invalid or missing discord_id");
+  return res.sendStatus(200);
+}
 
     // ── SCORE ──
     const score = Number(data.data.calculations?.score ?? 0);
