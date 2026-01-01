@@ -28,7 +28,9 @@ if (!Array.isArray(fieldsArray)) {
 const fields = Object.fromEntries(
   fieldsArray.map(f => [
     f.ref || f.key,
-    f.value
+    typeof f.value === "string"
+      ? f.value
+      : f.value?.text ?? f.text ?? ""
   ])
 );
 
