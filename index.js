@@ -11,10 +11,6 @@ const {
 const typeformPoller = require("./typeformPoller");
 const { handleTallyWebhook } = require("./tallyWebhook");
 
-const tallyRouter = require("./tallyWebhook")(client);
-app.use(tallyRouter);
-
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -22,6 +18,9 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+const tallyRouter = require("./tallyWebhook")(client);
+app.use(tallyRouter);
 
 /* ───────────────────────────
    STATUS EMBED
