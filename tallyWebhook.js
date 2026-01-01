@@ -30,7 +30,9 @@ const fields = Object.fromEntries(
   ])
 );
 
-const discordId = String(fields.discord_id || "").trim();
+const discordId = String(
+  fields["question_5zxVAb_5842a6ed-fed7-4a45-876e-c56f4e681c5f"] || ""
+).trim();
 
 if (!discordId || !/^\d{17,20}$/.test(discordId)) {
   console.warn("[TALLY] Invalid or missing discord_id");
