@@ -10,6 +10,10 @@ const {
 const STAFF_CHANNEL_ID = process.env.ASSESSMENT_CHANNEL_ID;
 const PASS_MARK = Number(process.env.TALLY_PASS_SCORE || 7);
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 module.exports = (client) => {
 router.post("/tally", async (req, res) => {
   console.log("🟢 TALLY ROUTE HIT");
@@ -76,17 +80,19 @@ const score = Number(scoreField?.value || 0);
     const passed = score >= PASS_MARK;
 
     // ── DM USER ──
-    try {
-      const user = await client.users.fetch(discordId);
-      await user.send({
-        components: passed
-          ? buildAssessmentPassedDM(user.username)
-          : buildAssessmentFailedDM(user.username),
-        flags: 32768
-      });
-    } catch (dmErr) {
-      console.warn("[TALLY] Could not DM applicant:", dmErr.message);
-    }
+try {
+  await sleep(5 * 60 * 1000); // 5 minutes
+
+  const user = await client.users.fetch(discordId);
+  await user.send({
+    components: passed
+      ? buildAssessmentPassedDM(user.username)
+      : buildAssessmentFailedDM(user.username),
+    flags: 32768
+  });
+} catch (dmErr) {
+  console.warn("[TALLY] Could not DM applicant:", dmErr.message);
+}
 
     // ── STAFF LOG ──
     if (STAFF_CHANNEL_ID) {

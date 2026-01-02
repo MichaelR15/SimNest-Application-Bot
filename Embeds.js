@@ -130,9 +130,10 @@ function buildAssessmentFailedDM(username) {
           type: 10,
           content:
             `### Hi ${username || "there"},\n\n` +
-            "Thanks for completing the assessment.\n\n" +
-            "Unfortunately, you **haven’t progressed** to the next stage on this occasion.\n\n" +
-            "We appreciate the time you took to apply.\n\n" +
+            "Thanks for taking the time to complete the assessment — we really appreciate the effort you put into it.\n\n" +
+            "After reviewing your responses, you **haven’t progressed to the next stage** on this occasion. This doesn’t mean you did anything wrong — we often have to make tough decisions based on consistency, experience, and current team needs.\n\n" +
+            "You’re welcome to take what you’ve learned and **apply again in the future**, especially if you feel more confident with moderation scenarios and decision-making.\n\n" +
+            "Thanks again for your interest in SimNest, and we wish you all the best.\n\n" +
             "**SimNest**"
         }
       ]
