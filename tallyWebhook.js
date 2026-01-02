@@ -80,6 +80,9 @@ const score = Number(scoreField?.value || 0);
     const passed = score >= PASS_MARK;
 
     // ── DM USER ──
+
+    console.log("📨 DM TARGET DISCORD ID:", discordId);
+
 try {
   await sleep(5 * 60 * 1000); // 5 minutes
 

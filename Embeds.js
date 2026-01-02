@@ -145,7 +145,6 @@ function buildAssessmentFailedDM(username) {
    STAFF ASSESSMENT LOG EMBED
 ─────────────────────────── */
 
-
 function buildStaffAssessmentLog({ discordId, score, passed }) {
   return new EmbedBuilder()
     .setTitle("🧪 Staff Assessment Result")
