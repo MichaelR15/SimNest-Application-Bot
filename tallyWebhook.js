@@ -69,10 +69,10 @@ if (!discordId || !/^\d{17,20}$/.test(discordId)) {
 
     // ── SCORE ──
 const scoreField = fieldsArray.find(
-  f => f.type === "CALCULATED_FIELDS" && f.label === "Score"
+  f => f.type === "CALCULATED_FIELDS"
 );
 
-const score = Number(scoreField?.value ?? 0);
+const score = Number(scoreField?.value || 0);
     const passed = score >= PASS_MARK;
 
     // ── DM USER ──
