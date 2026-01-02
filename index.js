@@ -11,7 +11,9 @@ const typeformPoller = require("./typeformPoller");
 const tallyWebhook = require("./tallyWebhook");
 
 const {
-  buildStage2InviteDM
+  buildStage2InviteDM,
+  buildAssessmentPassedDM,
+  buildAssessmentFailedDM
 } = require("./Embeds");
 
 /* ───────────────────────────
@@ -35,7 +37,6 @@ const app = express();
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/", (_, res) => res.send("OK"));
-
 app.use("/", tallyWebhook(client));
 
 /* ───────────────────────────
@@ -85,20 +86,56 @@ client.on("interactionCreate", async (interaction) => {
   const [action, applicantId] = interaction.customId.split(":");
   if (!applicantId) return;
 
-  const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+  // ── TYPEFORM APPLICATION FLOW ──
+  if (action === "app_accept" || action === "app_deny") {
+    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
 
-  if (action === "app_accept") {
-    embed.setColor(0x57f287).addFields({
-      name: "Reviewed",
-      value: `Accepted by ${interaction.user}`
-    });
+    if (action === "app_accept") {
+      embed.setColor(0x57f287).addFields({
+        name: "Reviewed",
+        value: `Accepted by ${interaction.user}`
+      });
 
-    await interaction.update({ embeds: [embed], components: [] });
+      await interaction.update({ embeds: [embed], components: [] });
+
+      try {
+        const user = await client.users.fetch(applicantId);
+        await user.send({
+          components: buildStage2InviteDM(user.username),
+          flags: 32768
+        });
+      } catch {
+        await interaction.followUp({
+          content: "⚠️ Could not DM applicant.",
+          ephemeral: true
+        });
+      }
+    }
+
+    if (action === "app_deny") {
+      embed.setColor(0xed4245).addFields({
+        name: "Reviewed",
+        value: `Denied by ${interaction.user}`
+      });
+
+      await interaction.update({ embeds: [embed], components: [] });
+    }
+
+    return;
+  }
+
+  // ── ASSESSMENT REVIEW FLOW ──
+  if (action === "assessment_pass" || action === "assessment_fail") {
+    await interaction.update({ components: [] });
 
     try {
       const user = await client.users.fetch(applicantId);
+
       await user.send({
-        components: buildStage2InviteDM(user.username),
+        components:
+          action === "assessment_pass"
+            ? buildAssessmentPassedDM(user.username)
+            : buildAssessmentFailedDM(user.username),
         flags: 32768
       });
     } catch {
@@ -107,15 +144,6 @@ client.on("interactionCreate", async (interaction) => {
         ephemeral: true
       });
     }
-  }
-
-  if (action === "app_deny") {
-    embed.setColor(0xed4245).addFields({
-      name: "Reviewed",
-      value: `Denied by ${interaction.user}`
-    });
-
-    await interaction.update({ embeds: [embed], components: [] });
   }
 });
 

@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const fetch = require("node-fetch");
 
 const {
   EmbedBuilder,
@@ -21,13 +22,31 @@ const PING_ROLE_ID = "1455059336580829359";
 const TYPEFORM_REVIEW_URL =
   "https://admin.typeform.com/form/Q68IW4Ef/results#insights";
 
-const STATE_FILE = path.join(__dirname, "lastResponse.json");
+const STATE_FILE = path.join(__dirname, "typeform_state.json");
 
 if (!FORM_ID) throw new Error("TYPEFORM_FORM_ID missing");
 if (!TYPEFORM_TOKEN) throw new Error("TYPEFORM_TOKEN missing");
 
 /* ───────────────────────────
-   FETCH TYPEFORM RESPONSES
+   STATE
+─────────────────────────── */
+
+let state = { lastResponseId: null };
+
+if (fs.existsSync(STATE_FILE)) {
+  try {
+    state = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+  } catch {
+    console.warn("[TYPEFORM] State file invalid, starting fresh");
+  }
+}
+
+function saveState() {
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+/* ───────────────────────────
+   FETCH RESPONSES
 ─────────────────────────── */
 
 async function fetchResponses() {
@@ -46,19 +65,6 @@ async function fetchResponses() {
   }
 
   return res.json();
-}
-
-/* ───────────────────────────
-   STATE
-─────────────────────────── */
-
-function getLastResponseId() {
-  if (!fs.existsSync(STATE_FILE)) return null;
-  return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")).lastResponseId;
-}
-
-function saveLastResponseId(id) {
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastResponseId: id }, null, 2));
 }
 
 /* ───────────────────────────
@@ -88,8 +94,11 @@ module.exports.start = (client) => {
       const latest = data.items?.[0];
       if (!latest) return;
 
-      if (latest.response_id === getLastResponseId()) return;
-      saveLastResponseId(latest.response_id);
+      // 🛑 Prevent resend on restart
+      if (latest.response_id === state.lastResponseId) return;
+
+      state.lastResponseId = latest.response_id;
+      saveState();
 
       const channel = await client.channels.fetch(APPLICATION_CHANNEL_ID);
       if (!channel) return;

@@ -96,8 +96,9 @@ function buildAssessmentPassedDM(username) {
           type: 10,
           content:
             `### Hi ${username || "there"},\n\n` +
-            "Thanks for completing the assessment — you’ve **successfully passed** this stage of the process.\n\n" +
-            "The next phase will be a **short conversation** with members of the **Directive / Owner team**. You’ll be added to a chat shortly.\n\n" +
+            "Thanks for completing the assessment — we’ve finished reviewing your responses and you’ve **passed this stage**.\n\n" +
+            "Your answers showed good judgement and an understanding of how moderation decisions should be handled.\n\n" +
+            "The next step will be a **short conversation** with members of the **Directive / Owner team**. You’ll be added to a chat shortly so we can arrange that.\n\n" +
             "**SimNest**"
         }
       ]
