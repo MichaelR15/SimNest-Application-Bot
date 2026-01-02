@@ -7,6 +7,8 @@ const {
   buildStaffAssessmentLog
 } = require("./Embeds");
 
+const {EmbedBuilder,} = require("discord.js");
+
 const STAFF_CHANNEL_ID = process.env.ASSESSMENT_CHANNEL_ID;
 const PASS_MARK = Number(process.env.TALLY_PASS_SCORE || 7);
 
