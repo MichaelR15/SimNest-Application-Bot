@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const fetch = require("node-fetch");
 
 const {
   EmbedBuilder,
@@ -114,32 +113,7 @@ module.exports.start = (client) => {
             name: "Applicant Information",
             value:
               `**Name:** ${applicantName}\n` +
-              `**Discord Username:** ${getAnswer(latest.answers, "discord_username")}\n` +
-              `**User:** <@${applicantId}>\n` +
-              `**Country:** ${getAnswer(latest.answers, "country")}\n` +
-              `**Timezone:** ${getAnswer(latest.answers, "timezone")}`
-          },
-          {
-            name: "Role & Motivation",
-            value:
-              `**Role Applied For:** ${getAnswer(latest.answers, "role")}\n\n` +
-              `**Motivation:**\n${getAnswer(latest.answers, "motivation")}`
-          },
-          {
-            name: "Conflict Handling",
-            value: getAnswer(latest.answers, "conflict_handling")
-          },
-          {
-            name: "Moderation Experience",
-            value: getAnswer(latest.answers, "moderation_experience")
-          },
-          {
-            name: "Past Staff Experience",
-            value:
-              `**Previous Experience:** ${getAnswer(latest.answers, "role_experience")}\n\n` +
-              `**Servers:** ${getAnswer(latest.answers, "specific_servers")}\n\n` +
-              `**Roles & Permissions:** ${getAnswer(latest.answers, "role_details")}\n\n` +
-              `**Challenges Faced:** ${getAnswer(latest.answers, "role_challenges")}`
+              `**User:** <@${applicantId}>`
           }
         )
         .setFooter({
