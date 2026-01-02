@@ -24,12 +24,15 @@ if (!Array.isArray(fieldsArray)) {
   return res.sendStatus(200);
 }
 
-console.log(
-  "🧪 RAW DISCORD FIELD:",
-  fieldsArray.find(f =>
-    f.key === "question_5zxVAb_5842a6ed-fed7-4a45-876e-c56f4e681c5f"
-  )
-);
+fieldsArray.forEach(f => {
+  console.log("FIELD:", {
+    key: f.key,
+    label: f.label,
+    type: f.type,
+    value: f.value
+  });
+});
+
 
 // Build a map of ref → value (fallback to key)
 const fields = Object.fromEntries(
