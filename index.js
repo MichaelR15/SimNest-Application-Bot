@@ -13,7 +13,9 @@ const tallyWebhook = require("./tallyWebhook");
 const {
   buildStage2InviteDM,
   buildAssessmentPassedDM,
-  buildAssessmentFailedDM
+  buildAssessmentFailedDM,
+  buildInterviewPassedDM,
+  buildInterviewFailedDM
 } = require("./Embeds");
 
 /* ───────────────────────────
@@ -77,65 +79,106 @@ client.on("messageCreate", async (msg) => {
 });
 
 /* ───────────────────────────
-   BUTTON HANDLER
+   INTERACTIONS (BUTTONS + MODALS)
 ─────────────────────────── */
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isButton()) return;
 
-  const [action, applicantId] = interaction.customId.split(":");
-  if (!applicantId) return;
+  /* ───────── BUTTONS ───────── */
+  if (interaction.isButton()) {
+    const [action, applicantId] = interaction.customId.split(":");
+    if (!applicantId) return;
 
-  // ── TYPEFORM APPLICATION FLOW ──
-  if (action === "app_accept" || action === "app_deny") {
-    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+    // ── TYPEFORM APPLICATION FLOW ──
+    if (action === "app_accept" || action === "app_deny") {
+      const embed = EmbedBuilder.from(interaction.message.embeds[0]);
 
-    if (action === "app_accept") {
-      embed.setColor(0x57f287).addFields({
-        name: "Reviewed",
-        value: `Accepted by ${interaction.user}`
-      });
-
-      await interaction.update({ embeds: [embed], components: [] });
-
-      try {
-        const user = await client.users.fetch(applicantId);
-        await user.send({
-          components: buildStage2InviteDM(user.username),
-          flags: 32768
+      if (action === "app_accept") {
+        embed.setColor(0x57f287).addFields({
+          name: "Reviewed",
+          value: `Accepted by ${interaction.user}`
         });
-      } catch {
-        await interaction.followUp({
-          content: "⚠️ Could not DM applicant.",
-          ephemeral: true
-        });
+
+        await interaction.update({ embeds: [embed], components: [] });
+
+        try {
+          const user = await client.users.fetch(applicantId);
+          await user.send({
+            components: buildStage2InviteDM(user.username),
+            flags: 32768
+          });
+        } catch {
+          await interaction.followUp({
+            content: "⚠️ Could not DM applicant.",
+            ephemeral: true
+          });
+        }
       }
+
+      if (action === "app_deny") {
+        embed.setColor(0xed4245).addFields({
+          name: "Reviewed",
+          value: `Denied by ${interaction.user}`
+        });
+
+        await interaction.update({ embeds: [embed], components: [] });
+      }
+
+      return;
     }
 
-    if (action === "app_deny") {
-      embed.setColor(0xed4245).addFields({
-        name: "Reviewed",
-        value: `Denied by ${interaction.user}`
-      });
+    // ── INTERVIEW REVIEW FLOW (OPEN MODAL) ──
+    if (action === "assessment_pass" || action === "assessment_fail") {
+      const modal = {
+        title: action === "assessment_pass"
+          ? "Interview Feedback (Pass)"
+          : "Interview Feedback (Fail)",
+        custom_id: `interview_feedback:${action}:${applicantId}`,
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 4,
+                custom_id: "feedback",
+                label: "Feedback for the applicant (optional)",
+                style: 2,
+                required: false,
+                max_length: 1000,
+                placeholder: "This feedback will be sent to the applicant."
+              }
+            ]
+          }
+        ]
+      };
 
-      await interaction.update({ embeds: [embed], components: [] });
+      return interaction.showModal(modal);
     }
-
-    return;
   }
 
-  // ── ASSESSMENT REVIEW FLOW ──
-  if (action === "assessment_pass" || action === "assessment_fail") {
-    await interaction.update({ components: [] });
+  /* ───────── MODAL SUBMIT ───────── */
+  if (interaction.isModalSubmit()) {
+    const [type, action, applicantId] = interaction.customId.split(":");
+    if (type !== "interview_feedback") return;
+
+    const feedback = interaction.fields.getTextInputValue("feedback");
+    const passed = action === "assessment_pass";
+
+    const embed = EmbedBuilder.from(interaction.message.embeds[0])
+      .setColor(passed ? 0x57f287 : 0xed4245)
+      .addFields({
+        name: "Interview Outcome",
+        value: `${passed ? "✅ Passed" : "❌ Failed"} by ${interaction.user}`
+      });
+
+    await interaction.update({ embeds: [embed], components: [] });
 
     try {
       const user = await client.users.fetch(applicantId);
-
       await user.send({
-        components:
-          action === "assessment_pass"
-            ? buildAssessmentPassedDM(user.username)
-            : buildAssessmentFailedDM(user.username),
+        components: passed
+          ? buildInterviewPassedDM(user.username, feedback)
+          : buildInterviewFailedDM(user.username, feedback),
         flags: 32768
       });
     } catch {

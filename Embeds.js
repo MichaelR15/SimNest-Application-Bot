@@ -98,13 +98,15 @@ function buildAssessmentPassedDM(username) {
             `### Hi ${username || "there"},\n\n` +
             "Thanks for completing the assessment — we’ve finished reviewing your responses and you’ve **passed this stage**.\n\n" +
             "Your answers showed good judgement and an understanding of how moderation decisions should be handled.\n\n" +
-            "The next step will be a **short conversation** with members of the **Directive / Owner team**. You’ll be added to a chat shortly so we can arrange that.\n\n" +
+            "The next step will be a **short conversation** with members of the **SimNest Directive team and the Owner**. You’ll be added to a group chat with them shortly.\n\n" +
+            "There’s no fixed time for this — you can respond whenever you’re ready or free. It’s mainly an opportunity for you to ask questions about the role and for us to get to know you a bit better. While this stage is pass/fail, you won’t be asked anything difficult or put under pressure.\n\n" +
             "**SimNest**"
         }
       ]
     }
   ];
 }
+
 
 /* ───────────────────────────
    COMPONENTS V2 — ASSESSMENT FAILED
@@ -170,10 +172,90 @@ function buildStaffAssessmentLog({ discordId, score, passed }) {
     .setTimestamp();
 }
 
+/* ───────────────────────────
+   INTERVIEW PASSED EMBED
+─────────────────────────── */
+
+function buildInterviewPassedDM(username, feedback) {
+  return [
+    {
+      type: 17,
+      accent_color: 0x57f287,
+      components: [
+        {
+          type: 12,
+          items: [
+            {
+              type: 2,
+              media: {
+                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
+              }
+            }
+          ]
+        },
+        {
+          type: 10,
+          content:
+            `### Hi ${username || "there"},\n\n` +
+            "We’re happy to let you know that you’ve **successfully passed the interview stage**.\n\n" +
+            "Welcome to the **SimNest staff team** — we’re excited to have you on board.\n\n" +
+            (feedback
+              ? `**Feedback from the team:**\n${feedback}\n\n`
+              : "") +
+            "You’ll receive further details shortly about next steps and onboarding.\n\n" +
+            "**SimNest**"
+        }
+      ]
+    }
+  ];
+}
+
+/* ───────────────────────────
+   INTERVIEW FAILED EMBED
+─────────────────────────── */
+
+
+function buildInterviewFailedDM(username, feedback) {
+  return [
+    {
+      type: 17,
+      accent_color: 0xed4245,
+      components: [
+        {
+          type: 12,
+          items: [
+            {
+              type: 2,
+              media: {
+                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
+              }
+            }
+          ]
+        },
+        {
+          type: 10,
+          content:
+            `### Hi ${username || "there"},\n\n` +
+            "Thank you for taking the time to speak with us.\n\n" +
+            "After careful consideration, we’ve decided not to move forward with your application on this occasion.\n\n" +
+            (feedback
+              ? `**Feedback from the team:**\n${feedback}\n\n`
+              : "") +
+            "We genuinely appreciate your interest in SimNest and wish you all the best going forward.\n\n" +
+            "**SimNest**"
+        }
+      ]
+    }
+  ];
+}
+
+
 module.exports = {
   buildAppliedDMComponents,
   buildStage2InviteDM,
   buildAssessmentPassedDM,
   buildAssessmentFailedDM,
+  buildInterviewPassedDM,
+  buildInterviewFailedDM,
   buildStaffAssessmentLog
 };
