@@ -144,7 +144,7 @@ setTimeout(async () => {
   } catch (dmErr) {
     console.warn("[TALLY] Could not DM applicant:", dmErr.message);
   }
-}, 5 * 60 * 1000); // 5 minutes
+}, 60 * 1000); // 1 minute
 
     // ── STAFF LOG ──
     if (STAFF_CHANNEL_ID) {
