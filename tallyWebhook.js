@@ -44,9 +44,19 @@ const fields = Object.fromEntries(
   ])
 );
 
-const discordId = String(
-  fields["question_R0Pjk9"] || ""
-).trim();
+const discordField = fieldsArray.find(
+  f => f.key === "question_R0Pjk9"
+);
+
+const discordId = String(discordField?.value || "").trim();
+
+if (!discordId || !/^\d{17,20}$/.test(discordId)) {
+  console.warn("[TALLY] Invalid or missing discord_id", {
+    extracted: discordId,
+    rawValue: discordField?.value
+  });
+  return res.sendStatus(200);
+}
 
 if (!discordId || !/^\d{17,20}$/.test(discordId)) {
   console.warn("[TALLY] Invalid or missing discord_id");
