@@ -35,6 +35,39 @@ function buildAppliedDMComponents(username) {
   ];
 }
 
+function buildApplicationRejectedDM(username) {
+  return [
+    {
+      type: 17,
+      accent_color: 0xed4245,
+      components: [
+        {
+          type: 12,
+          items: [
+            {
+              type: 2,
+              media: {
+                url: "https://i.postimg.cc/cL2mQK6G/Sim-Nest-Application-Update.png"
+              }
+            }
+          ]
+        },
+        {
+          type: 10,
+          content:
+            `### Hi ${username || "there"},\n\n` +
+            "Thank you for taking the time to apply to **SimNest**.\n\n" +
+            "Unfortunately, your application was **not successful** on this occasion.\n\n" +
+            "This doesn’t necessarily reflect negatively on you — we receive a high number of applications, and decisions are made based on current needs.\n\n" +
+            "You’re welcome to apply again in the future.\n\n" +
+            "**SimNest**"
+        }
+      ]
+    }
+  ];
+}
+
+
 /* ───────────────────────────
    COMPONENTS V2 — STAGE 2 INVITE
 ─────────────────────────── */
@@ -257,5 +290,6 @@ module.exports = {
   buildAssessmentFailedDM,
   buildInterviewPassedDM,
   buildInterviewFailedDM,
-  buildStaffAssessmentLog
+  buildStaffAssessmentLog,
+  buildApplicationRejectedDM,
 };

@@ -15,10 +15,10 @@ const {
   buildAssessmentPassedDM,
   buildAssessmentFailedDM,
   buildInterviewPassedDM,
-  buildInterviewFailedDM
+  buildInterviewFailedDM,
+  buildStage2InviteDM,
+  buildApplicationRejectedDM
 } = require("./Embeds");
-
-const { buildInterviewWelcomeComponents } = require("./interviewEmbeds");
 
 const INTERVIEW_CATEGORY_ID = "1456842606003617975";
 const INTERVIEW_ARCHIVE_CATEGORY_ID = "1456849242084741182";
@@ -58,15 +58,49 @@ client.on("interactionCreate", async (interaction) => {
   /* ───────── BUTTONS ───────── */
   if (interaction.isButton()) {
     const [action, applicantId] = interaction.customId.split(":");
-    if (!applicantId) return;
+
+    // ALWAYS acknowledge
+    await interaction.deferUpdate();
+
+    /* ── TYPEFORM APPLICATION ── */
+    if (action === "app_accept") {
+      try {
+        const user = await client.users.fetch(applicantId);
+
+        await user.send({
+          components: buildStage2InviteDM(user.username),
+          flags: 32768
+        });
+
+        console.log("[TYPEFORM] Accepted → Stage 2 invite sent:", applicantId);
+      } catch (err) {
+        console.warn("[TYPEFORM] Failed to DM Stage 2 invite:", err.message);
+      }
+
+      return;
+    }
+
+    if (action === "app_deny") {
+      try {
+        const user = await client.users.fetch(applicantId);
+
+        await user.send({
+          components: buildApplicationRejectedDM(user.username),
+          flags: 32768
+        });
+
+        console.log("[TYPEFORM] Application rejected:", applicantId);
+      } catch (err) {
+        console.warn("[TYPEFORM] Failed to DM rejection:", err.message);
+      }
+
+      return;
+    }
 
     /* ── START INTERVIEW ── */
     if (action === "interview_start") {
       try {
-        await interaction.deferUpdate();
-
         const guild = interaction.guild;
-
         const cached = client.applicantCache.get(String(applicantId));
         const user = await client.users.fetch(applicantId);
 
@@ -81,16 +115,6 @@ client.on("interactionCreate", async (interaction) => {
             {
               id: guild.roles.everyone.id,
               deny: [PermissionsBitField.Flags.ViewChannel]
-            },
-            {
-              id: guild.members.me.id, // ✅ BOT ITSELF
-              allow: [
-                PermissionsBitField.Flags.ViewChannel,
-                PermissionsBitField.Flags.SendMessages,
-                PermissionsBitField.Flags.ReadMessageHistory,
-                PermissionsBitField.Flags.EmbedLinks,
-                PermissionsBitField.Flags.AttachFiles
-              ]
             },
             {
               id: applicantId,
@@ -120,54 +144,50 @@ client.on("interactionCreate", async (interaction) => {
         });
 
         await channel.send({
-          components: buildInterviewWelcomeComponents(),
-          flags: 32768
+          content: `<@${applicantId}> <@&${DIRECTIVE_ROLE_ID}> <@&${OWNER_ROLE_ID}>`,
+          allowedMentions: {
+            users: [applicantId],
+            roles: [DIRECTIVE_ROLE_ID, OWNER_ROLE_ID]
+          }
         });
 
-const logChannel = await client.channels.fetch(INTERVIEW_LOG_CHANNEL_ID);
-
-await logChannel.send({
-  embeds: [
-    new EmbedBuilder()
-      .setTitle("🗂 Interview In Progress")
-      .setColor(0x5865f2)
-      .addFields(
-        { name: "Applicant", value: `<@${applicantId}>` },
-        { name: "Channel", value: `<#${channel.id}>` }
-      )
-      .setTimestamp()
-  ],
-  components: [
-    {
-      type: 1,
-      components: [
-        {
-          type: 2,
-          style: 3,
-          label: "Pass Interview",
-          custom_id: `interview_pass:${applicantId}`
-        },
-        {
-          type: 2,
-          style: 4,
-          label: "Fail Interview",
-          custom_id: `interview_fail:${applicantId}`
-        }
-      ]
-    }
-  ]
-});
-
+        const logChannel = await client.channels.fetch(INTERVIEW_LOG_CHANNEL_ID);
+        await logChannel.send({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("🗂 Interview Started")
+              .setColor(0x5865f2)
+              .addFields(
+                { name: "Applicant", value: `<@${applicantId}>` },
+                { name: "Channel", value: `<#${channel.id}>` }
+              )
+              .setTimestamp()
+          ],
+          components: [
+            {
+              type: 1,
+              components: [
+                {
+                  type: 2,
+                  style: 3,
+                  label: "Pass Interview",
+                  custom_id: `interview_pass:${applicantId}`
+                },
+                {
+                  type: 2,
+                  style: 4,
+                  label: "Fail Interview",
+                  custom_id: `interview_fail:${applicantId}`
+                }
+              ]
+            }
+          ]
+        });
 
       } catch (err) {
-        console.error("[INTERVIEW CREATE] Failed:", err);
-        if (!interaction.replied) {
-          await interaction.followUp({
-            content: "⚠️ Failed to create interview channel.",
-            ephemeral: true
-          });
-        }
+        console.error("[INTERVIEW] Failed to start interview:", err);
       }
+
       return;
     }
 
@@ -178,23 +198,24 @@ await logChannel.send({
       action === "interview_pass" ||
       action === "interview_fail"
     ) {
-      const stage =
-        action.startsWith("assessment") ? "Assessment" : "Interview";
-
       return interaction.showModal({
-        title: `${stage} Feedback`,
+        title: "Feedback",
         custom_id: `feedback:${action}:${applicantId}`,
-        components: [{
-          type: 1,
-          components: [{
-            type: 4,
-            custom_id: "feedback",
-            label: "Feedback for the applicant",
-            style: 2,
-            required: false,
-            max_length: 1000
-          }]
-        }]
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 4,
+                custom_id: "feedback",
+                label: "Feedback for the applicant",
+                style: 2,
+                required: false,
+                max_length: 1000
+              }
+            ]
+          }
+        ]
       });
     }
   }
@@ -217,53 +238,30 @@ await logChannel.send({
 
     await interaction.update({ embeds: [embed], components: [] });
 
-    if (action === "assessment_pass") {
-  await interaction.channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setTitle("▶ Interview Available")
-        .setColor(0x5865f2)
-        .setDescription(
-          "This applicant has passed the assessment.\n\n" +
-          "When ready, you can start the interview."
-        )
-        .setTimestamp()
-    ],
-    components: [
-      {
-        type: 1,
-        components: [
-          {
-            type: 2,
-            style: 1,
-            label: "Start Interview",
-            custom_id: `interview_start:${applicantId}`
-          }
-        ]
-      }
-    ]
-  });
-}
+    try {
+      const user = await client.users.fetch(applicantId);
 
-    const user = await client.users.fetch(applicantId);
-    await user.send({
-      components: action.startsWith("assessment")
-        ? (passed
+      await user.send({
+        components: action.startsWith("assessment")
+          ? passed
             ? buildAssessmentPassedDM(user.username, feedback)
-            : buildAssessmentFailedDM(user.username, feedback))
-        : (passed
+            : buildAssessmentFailedDM(user.username, feedback)
+          : passed
             ? buildInterviewPassedDM(user.username, feedback)
-            : buildInterviewFailedDM(user.username, feedback)),
-      flags: 32768
-    });
+            : buildInterviewFailedDM(user.username, feedback),
+        flags: 32768
+      });
+
+    } catch (err) {
+      console.warn("[DM] Failed to DM applicant:", err.message);
+    }
 
     if (action.startsWith("interview")) {
       const channel = interaction.channel;
 
-      await channel.permissionOverwrites.edit(
-        channel.guild.roles.everyone,
-        { SendMessages: false }
-      );
+      await channel.permissionOverwrites.edit(applicantId, {
+        SendMessages: false
+      });
 
       setTimeout(() => {
         channel.setParent(INTERVIEW_ARCHIVE_CATEGORY_ID).catch(() => {});
