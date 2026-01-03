@@ -12,7 +12,6 @@ const tallyWebhook = require("./tallyWebhook");
 const typeformPoller = require("./typeformPoller");
 
 const {
-  buildStage2InviteDM,
   buildAssessmentPassedDM,
   buildAssessmentFailedDM,
   buildInterviewPassedDM,
@@ -63,72 +62,98 @@ client.on("interactionCreate", async (interaction) => {
 
     /* ── START INTERVIEW ── */
     if (action === "interview_start") {
-      const guild = interaction.guild;
+      try {
+        await interaction.deferUpdate();
 
-      const cached = client.applicantCache.get(String(applicantId));
-      const user = await client.users.fetch(applicantId);
+        const guild = interaction.guild;
 
-      const safeName =
-        cached?.name ||
-        user.username.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const cached = client.applicantCache.get(String(applicantId));
+        const user = await client.users.fetch(applicantId);
 
-      const channel = await guild.channels.create({
-        name: `interview-${safeName}`,
-        parent: INTERVIEW_CATEGORY_ID,
-        permissionOverwrites: [
-          {
-            id: guild.roles.everyone.id,
-            deny: [PermissionsBitField.Flags.ViewChannel]
-          },
-          {
-            id: applicantId,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ReadMessageHistory
-            ]
-          },
-          {
-            id: DIRECTIVE_ROLE_ID,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ReadMessageHistory
-            ]
-          },
-          {
-            id: OWNER_ROLE_ID,
-            allow: [PermissionsBitField.Flags.ViewChannel]
-          }
-        ]
-      });
+        const safeName =
+          cached?.name ||
+          user.username.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-      await channel.send({
-        components: buildInterviewWelcomeComponents(),
-        flags: 32768
-      });
-
-      await channel.send({
-        components: [{
-          type: 1,
-          components: [
+        const channel = await guild.channels.create({
+          name: `interview-${safeName}`,
+          parent: INTERVIEW_CATEGORY_ID,
+          permissionOverwrites: [
             {
-              type: 2,
-              style: 3,
-              label: "Pass Interview",
-              custom_id: `interview_pass:${applicantId}`
+              id: guild.roles.everyone.id,
+              deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
-              type: 2,
-              style: 4,
-              label: "Fail Interview",
-              custom_id: `interview_fail:${applicantId}`
+              id: guild.members.me.id, // ✅ BOT ITSELF
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory,
+                PermissionsBitField.Flags.EmbedLinks,
+                PermissionsBitField.Flags.AttachFiles
+              ]
+            },
+            {
+              id: applicantId,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory
+              ]
+            },
+            {
+              id: DIRECTIVE_ROLE_ID,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory
+              ]
+            },
+            {
+              id: OWNER_ROLE_ID,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory
+              ]
             }
           ]
-        }]
-      });
+        });
 
-      return interaction.update({ components: [] });
+        await channel.send({
+          components: buildInterviewWelcomeComponents(),
+          flags: 32768
+        });
+
+        await channel.send({
+          components: [{
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 3,
+                label: "Pass Interview",
+                custom_id: `interview_pass:${applicantId}`
+              },
+              {
+                type: 2,
+                style: 4,
+                label: "Fail Interview",
+                custom_id: `interview_fail:${applicantId}`
+              }
+            ]
+          }]
+        });
+
+      } catch (err) {
+        console.error("[INTERVIEW CREATE] Failed:", err);
+        if (!interaction.replied) {
+          await interaction.followUp({
+            content: "⚠️ Failed to create interview channel.",
+            ephemeral: true
+          });
+        }
+      }
+      return;
     }
 
     /* ── OPEN FEEDBACK MODAL ── */
