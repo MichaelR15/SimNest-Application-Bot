@@ -52,6 +52,17 @@ const fields = Object.fromEntries(
   ])
 );
 
+const applicantName =
+  fields["name"] ||
+  fields["applicant_name"] ||
+  "unknown";
+
+const roleApplied =
+  fields["role"] ||
+  fields["role_applied_for"] ||
+  "role";
+
+
 const discordField = fieldsArray.find(
   f =>
     f.type === "INPUT_TEXT" &&
@@ -81,6 +92,13 @@ if (processedSubmissions.has(discordId)) {
 }
 
 processedSubmissions.add(discordId);
+
+// Cache for interview stage
+client.applicantCache ??= new Map();
+client.applicantCache.set(discordId, {
+  name: applicantName.toLowerCase().replace(/[^a-z0-9]/g, ""),
+  role: roleApplied.toLowerCase().replace(/[^a-z0-9]/g, "")
+});
 
 
     // ── SCORE ──

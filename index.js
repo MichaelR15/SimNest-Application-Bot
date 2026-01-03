@@ -18,6 +18,16 @@ const {
   buildInterviewFailedDM
 } = require("./Embeds");
 
+const INTERVIEW_CATEGORY_ID = "1456842606003617975";
+const DIRECTIVE_ROLE_ID = "1310811297251590226";
+const OWNER_ROLE_ID = "1310812850444304414";
+
+const { buildInterviewWelcomeEmbed } = require("./interviewEmbeds");
+
+
+// Store minimal applicant metadata for later interview creation
+const applicantCache = new Map();
+
 /* ───────────────────────────
    DISCORD CLIENT
 ─────────────────────────── */
@@ -158,36 +168,84 @@ client.on("interactionCreate", async (interaction) => {
 
   /* ───────── MODAL SUBMIT ───────── */
   if (interaction.isModalSubmit()) {
-    const [type, action, applicantId] = interaction.customId.split(":");
-    if (type !== "interview_feedback") return;
+  const [type, action, applicantId] = interaction.customId.split(":");
+  if (type !== "interview_feedback") return;
 
-    const feedback = interaction.fields.getTextInputValue("feedback");
-    const passed = action === "assessment_pass";
+  const feedback = interaction.fields.getTextInputValue("feedback");
+  const passed = action === "assessment_pass";
 
-    const embed = EmbedBuilder.from(interaction.message.embeds[0])
-      .setColor(passed ? 0x57f287 : 0xed4245)
-      .addFields({
-        name: "Interview Outcome",
-        value: `${passed ? "✅ Passed" : "❌ Failed"} by ${interaction.user}`
-      });
+  const embed = EmbedBuilder.from(interaction.message.embeds[0])
+    .setColor(passed ? 0x57f287 : 0xed4245)
+    .addFields({
+      name: "Interview Outcome",
+      value: `${passed ? "✅ Passed" : "❌ Failed"} by ${interaction.user}`
+    });
 
-    await interaction.update({ embeds: [embed], components: [] });
+  await interaction.update({ embeds: [embed], components: [] });
 
+  // ───────────────────────────
+  // DM APPLICANT
+  // ───────────────────────────
+  try {
+    const user = await client.users.fetch(applicantId);
+    await user.send({
+      components: passed
+        ? buildInterviewPassedDM(user.username, feedback)
+        : buildInterviewFailedDM(user.username, feedback),
+      flags: 32768
+    });
+  } catch {
+    await interaction.followUp({
+      content: "⚠️ Could not DM applicant.",
+      ephemeral: true
+    });
+  }
+
+  // ───────────────────────────
+  // CREATE INTERVIEW CHANNEL (PASS ONLY)
+  // ───────────────────────────
+  if (passed) {
     try {
-      const user = await client.users.fetch(applicantId);
-      await user.send({
-        components: passed
-          ? buildInterviewPassedDM(user.username, feedback)
-          : buildInterviewFailedDM(user.username, feedback),
-        flags: 32768
+      const guild = interaction.guild;
+
+      const cached = client.applicantCache?.get(applicantId);
+
+      const channelName = `interview-${cached?.name || "applicant"}-${cached?.role || "role"}`;
+
+      const interviewChannel = await guild.channels.create({
+        name: channelName,
+        type: 0, // GuildText
+        parent: INTERVIEW_CATEGORY_ID,
+        permissionOverwrites: [
+          {
+            id: guild.roles.everyone,
+            deny: ["ViewChannel"]
+          },
+          {
+            id: applicantId,
+            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
+          },
+          {
+            id: DIRECTIVE_ROLE_ID, // Directive Team
+            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
+          },
+          {
+            id: OWNER_ROLE_ID, // Owner
+            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
+          }
+        ]
       });
-    } catch {
-      await interaction.followUp({
-        content: "⚠️ Could not DM applicant.",
-        ephemeral: true
-      });
+
+await interviewChannel.send({
+  content: `<@${applicantId}> <@&1310811297251590226> <@&1310812850444304414>`,
+  embeds: [buildInterviewWelcomeEmbed()]
+});
+
+    } catch (err) {
+      console.error("[INTERVIEW] Failed to create interview channel:", err);
     }
   }
+}
 });
 
 /* ───────────────────────────
