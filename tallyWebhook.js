@@ -52,17 +52,11 @@ module.exports = (client) => {
         fields["role_applied_for"] ||
         "role";
 
-      const discordField = fieldsArray.find(
-        f =>
-          f.type === "INPUT_TEXT" &&
-          typeof f.value === "string" &&
-          f.label?.toLowerCase().includes("discord")
-      );
-
-      const discordId = discordField?.value?.trim();
+      // ✅ Use known Discord ID field
+      const discordId = String(fields["question_d6dpRy"] || "").trim();
 
       if (!discordId || !/^\d{17,20}$/.test(discordId)) {
-        console.warn("[TALLY] Invalid discord_id");
+        console.warn("[TALLY] Invalid Discord User ID:", discordId);
         return res.sendStatus(200);
       }
 
@@ -102,23 +96,46 @@ module.exports = (client) => {
         )
         .setTimestamp();
 
-const reviewButtons = {
-  type: 1,
-  components: [
-    {
-      type: 2,
-      style: 3,
-      label: "Pass Assessment",
-      custom_id: `assessment_pass:${discordId}`
-    },
-    {
-      type: 2,
-      style: 4,
-      label: "Fail Assessment",
-      custom_id: `assessment_fail:${discordId}`
-    }
-  ]
-};
+      // ── STAGE 2: Written answers (ONLY if passed) ──
+      if (passed) {
+        const writtenAnswers = fieldsArray
+          .filter(
+            f =>
+              f.type === "TEXTAREA" &&
+              typeof f.value === "string" &&
+              f.value.trim().length
+          )
+          .map(f => {
+            const name = String(f.label || "Written Answer").slice(0, 256);
+            let value = f.value.trim();
+            if (value.length > 1000) value = value.slice(0, 1000) + "…";
+            return { name, value, inline: false };
+          });
+
+        // Embed limit: 25 fields total (we already use 3)
+        const remainingSlots = 25 - 3;
+        reviewEmbed.addFields(
+          ...writtenAnswers.slice(0, Math.max(0, remainingSlots))
+        );
+      }
+
+      const reviewButtons = {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 3,
+            label: "Pass Assessment",
+            custom_id: `assessment_pass:${discordId}`
+          },
+          {
+            type: 2,
+            style: 4,
+            label: "Fail Assessment",
+            custom_id: `assessment_fail:${discordId}`
+          }
+        ]
+      };
 
       const reviewChannel = await client.channels.fetch(REVIEW_CHANNEL_ID);
       await reviewChannel.send({
