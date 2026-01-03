@@ -63,39 +63,76 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.deferUpdate();
 
     /* ── TYPEFORM APPLICATION ── */
-    if (action === "app_accept") {
-      try {
-        const user = await client.users.fetch(applicantId);
+if (action === "app_accept") {
+  try {
+    const user = await client.users.fetch(applicantId);
 
-        await user.send({
-          components: buildStage2InviteDM(user.username),
-          flags: 32768
-        });
+    // DM applicant (Stage 2 invite)
+    await user.send({
+      components: buildStage2InviteDM(user.username),
+      flags: 32768
+    });
 
-        console.log("[TYPEFORM] Accepted → Stage 2 invite sent:", applicantId);
-      } catch (err) {
-        console.warn("[TYPEFORM] Failed to DM Stage 2 invite:", err.message);
-      }
+    // Update staff embed
+    const updatedEmbed = EmbedBuilder
+      .from(interaction.message.embeds[0])
+      .setColor(0x57f287)
+      .addFields({
+        name: "Application Decision",
+        value: `✅ **Accepted** by ${interaction.user}`,
+        inline: false
+      })
+      .setTimestamp();
 
-      return;
-    }
+    await interaction.editReply({
+      embeds: [updatedEmbed],
+      components: [] // remove Accept / Deny buttons
+    });
 
-    if (action === "app_deny") {
-      try {
-        const user = await client.users.fetch(applicantId);
+    console.log("[TYPEFORM] ACCEPTED →", applicantId);
 
-        await user.send({
-          components: buildApplicationRejectedDM(user.username),
-          flags: 32768
-        });
+  } catch (err) {
+    console.warn("[TYPEFORM] Accept failed:", err.message);
+  }
 
-        console.log("[TYPEFORM] Application rejected:", applicantId);
-      } catch (err) {
-        console.warn("[TYPEFORM] Failed to DM rejection:", err.message);
-      }
+  return;
+}
 
-      return;
-    }
+if (action === "app_deny") {
+  try {
+    const user = await client.users.fetch(applicantId);
+
+    // DM applicant (rejection)
+    await user.send({
+      components: buildApplicationRejectedDM(user.username),
+      flags: 32768
+    });
+
+    // Update staff embed
+    const updatedEmbed = EmbedBuilder
+      .from(interaction.message.embeds[0])
+      .setColor(0xed4245)
+      .addFields({
+        name: "Application Decision",
+        value: `❌ **Denied** by ${interaction.user}`,
+        inline: false
+      })
+      .setTimestamp();
+
+    await interaction.editReply({
+      embeds: [updatedEmbed],
+      components: [] // remove Accept / Deny buttons
+    });
+
+    console.log("[TYPEFORM] DENIED →", applicantId);
+
+  } catch (err) {
+    console.warn("[TYPEFORM] Deny failed:", err.message);
+  }
+
+  return;
+}
+
 
     /* ── START INTERVIEW ── */
     if (action === "interview_start") {
