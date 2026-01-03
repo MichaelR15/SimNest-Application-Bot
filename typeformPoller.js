@@ -129,6 +129,10 @@ module.exports.start = (client) => {
             value: getAnswer(latest.answers, "conflict_handling")
           },
           {
+            name: "Describe Yourself",
+            value: getAnswer(latest.answers, "about_you")
+          },
+          {
             name: "Moderation Experience",
             value: getAnswer(latest.answers, "moderation_experience")
           },
