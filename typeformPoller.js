@@ -130,7 +130,7 @@ module.exports.start = (client) => {
           },
           {
             name: "Describe Yourself",
-            value: getAnswer(latest.answers, "about_you")
+            value: getAnswer(latest.answers, "about")
           },
           {
             name: "Moderation Experience",
