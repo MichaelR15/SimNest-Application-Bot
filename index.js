@@ -21,6 +21,8 @@ const {
 const INTERVIEW_CATEGORY_ID = "1456842606003617975";
 const DIRECTIVE_ROLE_ID = "1310811297251590226";
 const OWNER_ROLE_ID = "1310812850444304414";
+const INTERVIEW_ARCHIVE_CATEGORY_ID = "1456849242084741182";
+
 
 const { buildInterviewWelcomeEmbed } = require("./interviewEmbeds");
 
@@ -167,7 +169,8 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   /* ───────── MODAL SUBMIT ───────── */
-  if (interaction.isModalSubmit()) {
+/* ───────── MODAL SUBMIT ───────── */
+if (interaction.isModalSubmit()) {
   const [type, action, applicantId] = interaction.customId.split(":");
   if (type !== "interview_feedback") return;
 
@@ -202,50 +205,50 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   // ───────────────────────────
-  // CREATE INTERVIEW CHANNEL (PASS ONLY)
+  // INTERVIEW CONCLUDED (LOCK + ARCHIVE)
   // ───────────────────────────
-  if (passed) {
-    try {
-      const guild = interaction.guild;
+  try {
+    const channel = interaction.channel;
+    if (!channel || !channel.isTextBased()) return;
 
-      const cached = client.applicantCache?.get(applicantId);
+    const cached = client.applicantCache?.get(applicantId);
+    const outcome = passed ? "pass" : "fail";
 
-      const channelName = `interview-${cached?.name || "applicant"}-${cached?.role || "role"}`;
+    // Lock applicant
+    await channel.permissionOverwrites.edit(applicantId, {
+      SendMessages: false
+    });
 
-      const interviewChannel = await guild.channels.create({
-        name: channelName,
-        type: 0, // GuildText
-        parent: INTERVIEW_CATEGORY_ID,
-        permissionOverwrites: [
-          {
-            id: guild.roles.everyone,
-            deny: ["ViewChannel"]
-          },
-          {
-            id: applicantId,
-            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
-          },
-          {
-            id: DIRECTIVE_ROLE_ID, // Directive Team
-            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
-          },
-          {
-            id: OWNER_ROLE_ID, // Owner
-            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"]
-          }
-        ]
-      });
+    // Closing embed
+    await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("🔒 Interview Concluded")
+          .setColor(passed ? 0x57f287 : 0xed4245)
+          .setDescription(
+            "This interview has now concluded.\n\n" +
+            "You’ll receive feedback in your DMs shortly."
+          )
+          .setTimestamp()
+      ]
+    });
 
-await interviewChannel.send({
-  content: `<@${applicantId}> <@&1310811297251590226> <@&1310812850444304414>`,
-  embeds: [buildInterviewWelcomeEmbed()]
-});
+    // Archive after 24h
+    setTimeout(async () => {
+      try {
+        const newName = `interview_${cached?.name || "applicant"}-${outcome}`;
+        await channel.setName(newName);
+        await channel.setParent(INTERVIEW_ARCHIVE_CATEGORY_ID);
+      } catch (err) {
+        console.error("[INTERVIEW] Archive failed:", err);
+      }
+    }, 24 * 60 * 60 * 1000);
 
-    } catch (err) {
-      console.error("[INTERVIEW] Failed to create interview channel:", err);
-    }
+  } catch (err) {
+    console.error("[INTERVIEW] Conclusion handling failed:", err);
   }
 }
+
 });
 
 /* ───────────────────────────
