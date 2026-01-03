@@ -132,20 +132,29 @@ const reviewEmbed = new EmbedBuilder()
 
 const reviewButtons = {
   type: 1,
-  components: [
-    {
-      type: 2,
-      style: 3,
-      label: "Pass",
-      custom_id: `assessment_pass:${discordId}`
-    },
-    {
-      type: 2,
-      style: 4,
-      label: "Fail",
-      custom_id: `assessment_fail:${discordId}`
-    }
-  ]
+  components: passed
+    ? [
+        {
+          type: 2,
+          style: 3,
+          label: "Start Interview",
+          custom_id: `interview_start:${discordId}`
+        },
+        {
+          type: 2,
+          style: 4,
+          label: "Fail",
+          custom_id: `assessment_fail:${discordId}`
+        }
+      ]
+    : [
+        {
+          type: 2,
+          style: 4,
+          label: "Fail",
+          custom_id: `assessment_fail:${discordId}`
+        }
+      ]
 };
 
 const reviewChannel = await client.channels.fetch(REVIEW_CHANNEL_ID);

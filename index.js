@@ -8,7 +8,6 @@ const {
   PermissionsBitField
 } = require("discord.js");
 
-
 const typeformPoller = require("./typeformPoller");
 const tallyWebhook = require("./tallyWebhook");
 
@@ -20,20 +19,15 @@ const {
   buildInterviewFailedDM
 } = require("./Embeds");
 
-const INTERVIEW_CATEGORY_ID = "1456842606003617975";
-const DIRECTIVE_ROLE_ID = "1310811297251590226";
-const OWNER_ROLE_ID = "1310812850444304414";
-const INTERVIEW_ARCHIVE_CATEGORY_ID = "1456849242084741182";
-
-
 const { buildInterviewWelcomeEmbed } = require("./interviewEmbeds");
 
-
-// Store minimal applicant metadata for later interview creation
-const applicantCache = new Map();
+const INTERVIEW_CATEGORY_ID = "1456842606003617975";
+const INTERVIEW_ARCHIVE_CATEGORY_ID = "1456849242084741182";
+const DIRECTIVE_ROLE_ID = "1310811297251590226";
+const OWNER_ROLE_ID = "1310812850444304414";
 
 /* ───────────────────────────
-   DISCORD CLIENT
+   CLIENT
 ─────────────────────────── */
 
 const client = new Client({
@@ -46,54 +40,49 @@ const client = new Client({
 });
 
 /* ───────────────────────────
-   EXPRESS SERVER
+   CACHE
+─────────────────────────── */
+
+client.applicantCache = new Map();
+
+/* ───────────────────────────
+   EXPRESS
 ─────────────────────────── */
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
-
 app.get("/", (_, res) => res.send("OK"));
 app.use("/", tallyWebhook(client));
 
 /* ───────────────────────────
-   STATUS EMBED
-─────────────────────────── */
-
-function formatUptime(seconds) {
-  const d = Math.floor(seconds / 86400);
-  seconds %= 86400;
-  const h = Math.floor(seconds / 3600);
-  seconds %= 3600;
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds);
-  return `${d}d ${h}h ${m}m ${s}s`;
-}
-
-function buildStatusEmbed() {
-  return new EmbedBuilder()
-    .setTitle("📊 Bot Status")
-    .setColor(0x57f287)
-    .addFields(
-      { name: "Status", value: "Online", inline: true },
-      { name: "Ping", value: `${client.ws.ping}ms`, inline: true },
-      { name: "Uptime", value: formatUptime(process.uptime()), inline: true }
-    )
-    .setTimestamp();
-}
-
-/* ───────────────────────────
-   PREFIX COMMAND
+   STATUS COMMAND
 ─────────────────────────── */
 
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
   if (msg.content === "-status") {
-    await msg.reply({ embeds: [buildStatusEmbed()] });
+    await msg.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("📊 Bot Status")
+          .setColor(0x57f287)
+          .addFields(
+            { name: "Status", value: "Online", inline: true },
+            { name: "Ping", value: `${client.ws.ping}ms`, inline: true },
+            {
+              name: "Uptime",
+              value: `${Math.floor(process.uptime())}s`,
+              inline: true
+            }
+          )
+          .setTimestamp()
+      ]
+    });
   }
 });
 
 /* ───────────────────────────
-   INTERACTIONS (BUTTONS + MODALS)
+   INTERACTIONS
 ─────────────────────────── */
 
 client.on("interactionCreate", async (interaction) => {
@@ -103,7 +92,7 @@ client.on("interactionCreate", async (interaction) => {
     const [action, applicantId] = interaction.customId.split(":");
     if (!applicantId) return;
 
-    // ── TYPEFORM APPLICATION FLOW ──
+    /* ── APPLICATION ACCEPT / DENY ── */
     if (action === "app_accept" || action === "app_deny") {
       const embed = EmbedBuilder.from(interaction.message.embeds[0]);
 
@@ -141,12 +130,86 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    // ── INTERVIEW REVIEW FLOW (OPEN MODAL) ──
+    /* ── START INTERVIEW (CREATE CHANNEL) ── */
+    if (action === "interview_start") {
+      console.log("[INTERVIEW CREATE] Start interview for", applicantId);
+
+      const guild = interaction.guild;
+      const applicant = await guild.members.fetch(applicantId).catch(() => null);
+
+      if (!applicant) {
+        return interaction.reply({
+          content: "❌ Applicant not found in server.",
+          ephemeral: true
+        });
+      }
+
+      const cached = client.applicantCache.get(applicantId);
+      const safeName =
+        cached?.name ||
+        applicant.user.username.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      const channelName = `interview-${safeName}`;
+
+      const channel = await guild.channels.create({
+        name: channelName,
+        parent: INTERVIEW_CATEGORY_ID,
+        permissionOverwrites: [
+          {
+            id: guild.roles.everyone.id,
+            deny: [PermissionsBitField.Flags.ViewChannel]
+          },
+          {
+            id: applicantId,
+            allow: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.SendMessages,
+              PermissionsBitField.Flags.ReadMessageHistory
+            ]
+          },
+          {
+            id: DIRECTIVE_ROLE_ID,
+            allow: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.SendMessages,
+              PermissionsBitField.Flags.ReadMessageHistory
+            ]
+          },
+          {
+            id: OWNER_ROLE_ID,
+            allow: [PermissionsBitField.Flags.ViewChannel]
+          }
+        ]
+      });
+
+      console.log("[INTERVIEW CREATE] Channel created:", channel.id);
+
+      await channel.send({
+        embeds: [buildInterviewWelcomeEmbed(applicant.user)]
+      });
+
+      const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+        .setColor(0x57f287)
+        .addFields({
+          name: "Interview",
+          value: `🗣️ Started by ${interaction.user}\nChannel: ${channel}`
+        });
+
+      await interaction.update({
+        embeds: [updatedEmbed],
+        components: []
+      });
+
+      return;
+    }
+
+    /* ── OPEN FEEDBACK MODAL ── */
     if (action === "assessment_pass" || action === "assessment_fail") {
       const modal = {
-        title: action === "assessment_pass"
-          ? "Interview Feedback (Pass)"
-          : "Interview Feedback (Fail)",
+        title:
+          action === "assessment_pass"
+            ? "Interview Feedback (Pass)"
+            : "Interview Feedback (Fail)",
         custom_id: `interview_feedback:${action}:${applicantId}`,
         components: [
           {
@@ -158,8 +221,7 @@ client.on("interactionCreate", async (interaction) => {
                 label: "Feedback for the applicant (optional)",
                 style: 2,
                 required: false,
-                max_length: 1000,
-                placeholder: "This feedback will be sent to the applicant."
+                max_length: 1000
               }
             ]
           }
@@ -171,189 +233,60 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   /* ───────── MODAL SUBMIT ───────── */
-/* ───────── MODAL SUBMIT ───────── */
-if (interaction.isModalSubmit()) {
-  const [type, action, applicantId] = interaction.customId.split(":");
-  if (type !== "interview_feedback") return;
+  if (interaction.isModalSubmit()) {
+    const [type, action, applicantId] = interaction.customId.split(":");
+    if (type !== "interview_feedback") return;
 
-  console.log("[INTERVIEW] Modal submit received");
-  console.log("[INTERVIEW] Action:", action);
-  console.log("[INTERVIEW] Applicant ID:", applicantId);
+    const feedback = interaction.fields.getTextInputValue("feedback");
+    const passed = action === "assessment_pass";
 
-  const feedback = interaction.fields.getTextInputValue("feedback");
-  const passed = action === "assessment_pass";
+    const embed = EmbedBuilder.from(interaction.message.embeds[0])
+      .setColor(passed ? 0x57f287 : 0xed4245)
+      .addFields({
+        name: "Interview Outcome",
+        value: `${passed ? "✅ Passed" : "❌ Failed"} by ${interaction.user}`
+      });
 
-  console.log("[INTERVIEW] Outcome:", passed ? "PASS" : "FAIL");
+    await interaction.update({ embeds: [embed], components: [] });
 
-  const embed = EmbedBuilder.from(interaction.message.embeds[0])
-    .setColor(passed ? 0x57f287 : 0xed4245)
-    .addFields({
-      name: "Interview Outcome",
-      value: `${passed ? "✅ Passed" : "❌ Failed"} by ${interaction.user}`
-    });
+    try {
+      const user = await client.users.fetch(applicantId);
+      await user.send({
+        components: passed
+          ? buildInterviewPassedDM(user.username, feedback)
+          : buildInterviewFailedDM(user.username, feedback),
+        flags: 32768
+      });
+    } catch {}
 
-  await interaction.update({ embeds: [embed], components: [] });
-
-  // ───────────────────────────
-  // DM APPLICANT
-  // ───────────────────────────
-  try {
-    console.log("[INTERVIEW] Attempting DM to applicant");
-    const user = await client.users.fetch(applicantId);
-    await user.send({
-      components: passed
-        ? buildInterviewPassedDM(user.username, feedback)
-        : buildInterviewFailedDM(user.username, feedback),
-      flags: 32768
-    });
-    console.log("[INTERVIEW] DM sent successfully");
-  } catch (err) {
-    console.warn("[INTERVIEW] DM failed:", err);
-    await interaction.followUp({
-      content: "⚠️ Could not DM applicant.",
-      ephemeral: true
-    });
-  }
-
-  // ───────────────────────────
-  // INTERVIEW CONCLUDED (LOCK + ARCHIVE)
-  // ───────────────────────────
-  try {
     const channel = interaction.channel;
     const guild = interaction.guild;
 
-    if (!channel || !channel.isTextBased()) {
-      console.warn("[INTERVIEW] Channel missing or not text-based");
-      return;
+    const member = await guild.members.fetch(applicantId).catch(() => null);
+    const isAdmin =
+      member?.permissions.has(PermissionsBitField.Flags.Administrator) ?? false;
+
+    if (!isAdmin) {
+      await channel.permissionOverwrites.edit(applicantId, {
+        SendMessages: false
+      });
     }
 
-    console.log("──────── INTERVIEW CONCLUSION DEBUG ────────");
-    console.log("Channel ID:", channel.id);
-    console.log("Channel name:", channel.name);
-    console.log("Guild ID:", guild.id);
-
-    const me = guild.members.me;
-    console.log("Bot ID:", me?.id);
-    console.log(
-      "Bot highest role:",
-      me?.roles.highest?.name,
-      me?.roles.highest?.position
-    );
-
-    const botPerms = channel.permissionsFor(me);
-    console.log("Bot channel permissions:", botPerms?.toArray());
-
-    // ────────────────
-    // FETCH APPLICANT
-    // ────────────────
-    let applicantMember = null;
-    try {
-      applicantMember = await guild.members.fetch(applicantId);
-      console.log(
-        "Applicant highest role:",
-        applicantMember.roles.highest.name,
-        applicantMember.roles.highest.position
-      );
-      console.log(
-        "Applicant permissions:",
-        applicantMember.permissions.toArray()
-      );
-    } catch (err) {
-      console.warn("[INTERVIEW] Could not fetch applicant as guild member:", err);
-    }
-
-    const hasAdmin =
-      applicantMember?.permissions.has(
-        PermissionsBitField.Flags.Administrator
-      ) ?? false;
-
-    console.log("Applicant has Administrator:", hasAdmin);
-
-    const existingOverwrite =
-      channel.permissionOverwrites.cache.get(applicantId);
-
-    console.log(
-      "Existing applicant overwrite:",
-      existingOverwrite
-        ? {
-            allow: existingOverwrite.allow.toArray(),
-            deny: existingOverwrite.deny.toArray()
-          }
-        : "NONE"
-    );
-
-    // ───────────────────────────
-    // LOCK APPLICANT (SAFE)
-    // ───────────────────────────
-    if (hasAdmin) {
-      console.warn(
-        `[INTERVIEW] Skipping permission overwrite — applicant ${applicantId} has Administrator`
-      );
-    } else {
-      console.log("[INTERVIEW] Attempting to lock applicant (SendMessages=false)");
-
-      const overwritePayload = { SendMessages: false };
-      console.log("Overwrite payload:", overwritePayload);
-
-      await channel.permissionOverwrites.edit(
-        applicantId,
-        overwritePayload
-      );
-
-      console.log("✅ Applicant successfully locked");
-    }
-
-    // ───────────────────────────
-    // CLOSING EMBED
-    // ───────────────────────────
     await channel.send({
       embeds: [
         new EmbedBuilder()
           .setTitle("🔒 Interview Concluded")
           .setColor(passed ? 0x57f287 : 0xed4245)
-          .setDescription(
-            "This interview has now concluded.\n\n" +
-            "You’ll receive feedback in your DMs shortly."
-          )
           .setTimestamp()
       ]
     });
 
-    console.log("[INTERVIEW] Closing embed sent");
-
-    const cached = client.applicantCache?.get(applicantId);
-    const outcome = passed ? "pass" : "fail";
-
-    // ───────────────────────────
-    // ARCHIVE AFTER 24h
-    // ───────────────────────────
     setTimeout(async () => {
       try {
-        const newName = `interview_${cached?.name || "applicant"}-${outcome}`;
-        console.log("[INTERVIEW] Archiving channel:", newName);
-
-        await channel.setName(newName);
         await channel.setParent(INTERVIEW_ARCHIVE_CATEGORY_ID);
-
-        console.log("[INTERVIEW] Archive successful");
-      } catch (err) {
-        console.error("[INTERVIEW] Archive failed:", err);
-      }
+      } catch {}
     }, 24 * 60 * 60 * 1000);
-
-  } catch (err) {
-    console.error("🚨 [INTERVIEW] Conclusion handling failed");
-    console.error("Name:", err?.name);
-    console.error("Message:", err?.message);
-    console.error("Code:", err?.code);
-    console.error("HTTP status:", err?.status);
-    console.error("Request body:", err?.requestBody);
-    console.error("Raw error:", err?.rawError);
-    console.error("Full error:", err);
   }
-}
-
-
 });
 
 /* ───────────────────────────
@@ -370,12 +303,8 @@ client.once("ready", () => {
 ─────────────────────────── */
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🌐 Webhook server listening on ${PORT}`);
-});
+app.listen(PORT, () =>
+  console.log(`🌐 Webhook server listening on ${PORT}`)
+);
 
 client.login(process.env.DISCORD_TOKEN);
-
-/* ───────────────────────────
-   END
-─────────────────────────── */
