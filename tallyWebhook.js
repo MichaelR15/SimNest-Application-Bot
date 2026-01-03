@@ -7,6 +7,12 @@ const {
   buildStaffAssessmentLog
 } = require("./Embeds");
 
+// Users allowed to submit multiple times
+const DUPLICATE_WHITELIST = new Set([
+  "654110914311618561", // example
+  "614895781832556585", // your test user
+]);
+
 const {EmbedBuilder,} = require("discord.js");
 
 const STAFF_CHANNEL_ID = process.env.ASSESSMENT_CHANNEL_ID;
@@ -86,7 +92,10 @@ if (!discordId || !/^\d{17,20}$/.test(discordId)) {
   return res.sendStatus(200);
 }
 
-if (processedSubmissions.has(discordId)) {
+if (
+  processedSubmissions.has(discordId) &&
+  !DUPLICATE_WHITELIST.has(discordId)
+) {
   console.log("[TALLY] Duplicate submission ignored:", discordId);
   return res.sendStatus(200);
 }
