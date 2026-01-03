@@ -174,8 +174,14 @@ if (interaction.isModalSubmit()) {
   const [type, action, applicantId] = interaction.customId.split(":");
   if (type !== "interview_feedback") return;
 
+  console.log("[INTERVIEW] Modal submit received");
+  console.log("[INTERVIEW] Action:", action);
+  console.log("[INTERVIEW] Applicant ID:", applicantId);
+
   const feedback = interaction.fields.getTextInputValue("feedback");
   const passed = action === "assessment_pass";
+
+  console.log("[INTERVIEW] Outcome:", passed ? "PASS" : "FAIL");
 
   const embed = EmbedBuilder.from(interaction.message.embeds[0])
     .setColor(passed ? 0x57f287 : 0xed4245)
@@ -190,6 +196,7 @@ if (interaction.isModalSubmit()) {
   // DM APPLICANT
   // ───────────────────────────
   try {
+    console.log("[INTERVIEW] Attempting DM to applicant");
     const user = await client.users.fetch(applicantId);
     await user.send({
       components: passed
@@ -197,7 +204,9 @@ if (interaction.isModalSubmit()) {
         : buildInterviewFailedDM(user.username, feedback),
       flags: 32768
     });
-  } catch {
+    console.log("[INTERVIEW] DM sent successfully");
+  } catch (err) {
+    console.warn("[INTERVIEW] DM failed:", err);
     await interaction.followUp({
       content: "⚠️ Could not DM applicant.",
       ephemeral: true
@@ -209,17 +218,92 @@ if (interaction.isModalSubmit()) {
   // ───────────────────────────
   try {
     const channel = interaction.channel;
-    if (!channel || !channel.isTextBased()) return;
+    const guild = interaction.guild;
 
-    const cached = client.applicantCache?.get(applicantId);
-    const outcome = passed ? "pass" : "fail";
+    if (!channel || !channel.isTextBased()) {
+      console.warn("[INTERVIEW] Channel missing or not text-based");
+      return;
+    }
 
-    // Lock applicant
-    await channel.permissionOverwrites.edit(applicantId, {
-      SendMessages: false
-    });
+    console.log("──────── INTERVIEW CONCLUSION DEBUG ────────");
+    console.log("Channel ID:", channel.id);
+    console.log("Channel name:", channel.name);
+    console.log("Guild ID:", guild.id);
 
-    // Closing embed
+    const me = guild.members.me;
+    console.log("Bot ID:", me?.id);
+    console.log(
+      "Bot highest role:",
+      me?.roles.highest?.name,
+      me?.roles.highest?.position
+    );
+
+    const botPerms = channel.permissionsFor(me);
+    console.log("Bot channel permissions:", botPerms?.toArray());
+
+    // ────────────────
+    // FETCH APPLICANT
+    // ────────────────
+    let applicantMember = null;
+    try {
+      applicantMember = await guild.members.fetch(applicantId);
+      console.log(
+        "Applicant highest role:",
+        applicantMember.roles.highest.name,
+        applicantMember.roles.highest.position
+      );
+      console.log(
+        "Applicant permissions:",
+        applicantMember.permissions.toArray()
+      );
+    } catch (err) {
+      console.warn("[INTERVIEW] Could not fetch applicant as guild member:", err);
+    }
+
+    const hasAdmin =
+      applicantMember?.permissions.has(
+        PermissionsBitField.Flags.Administrator
+      ) ?? false;
+
+    console.log("Applicant has Administrator:", hasAdmin);
+
+    const existingOverwrite =
+      channel.permissionOverwrites.cache.get(applicantId);
+
+    console.log(
+      "Existing applicant overwrite:",
+      existingOverwrite
+        ? {
+            allow: existingOverwrite.allow.toArray(),
+            deny: existingOverwrite.deny.toArray()
+          }
+        : "NONE"
+    );
+
+    // ───────────────────────────
+    // LOCK APPLICANT (SAFE)
+    // ───────────────────────────
+    if (hasAdmin) {
+      console.warn(
+        `[INTERVIEW] Skipping permission overwrite — applicant ${applicantId} has Administrator`
+      );
+    } else {
+      console.log("[INTERVIEW] Attempting to lock applicant (SendMessages=false)");
+
+      const overwritePayload = { SendMessages: false };
+      console.log("Overwrite payload:", overwritePayload);
+
+      await channel.permissionOverwrites.edit(
+        applicantId,
+        overwritePayload
+      );
+
+      console.log("✅ Applicant successfully locked");
+    }
+
+    // ───────────────────────────
+    // CLOSING EMBED
+    // ───────────────────────────
     await channel.send({
       embeds: [
         new EmbedBuilder()
@@ -233,21 +317,40 @@ if (interaction.isModalSubmit()) {
       ]
     });
 
-    // Archive after 24h
+    console.log("[INTERVIEW] Closing embed sent");
+
+    const cached = client.applicantCache?.get(applicantId);
+    const outcome = passed ? "pass" : "fail";
+
+    // ───────────────────────────
+    // ARCHIVE AFTER 24h
+    // ───────────────────────────
     setTimeout(async () => {
       try {
         const newName = `interview_${cached?.name || "applicant"}-${outcome}`;
+        console.log("[INTERVIEW] Archiving channel:", newName);
+
         await channel.setName(newName);
         await channel.setParent(INTERVIEW_ARCHIVE_CATEGORY_ID);
+
+        console.log("[INTERVIEW] Archive successful");
       } catch (err) {
         console.error("[INTERVIEW] Archive failed:", err);
       }
     }, 24 * 60 * 60 * 1000);
 
   } catch (err) {
-    console.error("[INTERVIEW] Conclusion handling failed:", err);
+    console.error("🚨 [INTERVIEW] Conclusion handling failed");
+    console.error("Name:", err?.name);
+    console.error("Message:", err?.message);
+    console.error("Code:", err?.code);
+    console.error("HTTP status:", err?.status);
+    console.error("Request body:", err?.requestBody);
+    console.error("Raw error:", err?.rawError);
+    console.error("Full error:", err);
   }
 }
+
 
 });
 
