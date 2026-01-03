@@ -102,23 +102,23 @@ module.exports = (client) => {
         )
         .setTimestamp();
 
-      const reviewButtons = {
-        type: 1,
-        components: [
-          {
-            type: 2,
-            style: 3,
-            label: "Pass Assessment",
-            custom_id: `assessment_pass:${discordId}`
-          },
-          {
-            type: 2,
-            style: 4,
-            label: "Fail Assessment",
-            custom_id: `assessment_fail:${discordId}`
-          }
-        ]
-      };
+const reviewButtons = {
+  type: 1,
+  components: [
+    {
+      type: 2,
+      style: 3,
+      label: "Pass Assessment",
+      custom_id: `assessment_pass:${discordId}`
+    },
+    {
+      type: 2,
+      style: 4,
+      label: "Fail Assessment",
+      custom_id: `assessment_fail:${discordId}`
+    }
+  ]
+};
 
       const reviewChannel = await client.channels.fetch(REVIEW_CHANNEL_ID);
       await reviewChannel.send({

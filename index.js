@@ -124,25 +124,40 @@ client.on("interactionCreate", async (interaction) => {
           flags: 32768
         });
 
-        await channel.send({
-          components: [{
-            type: 1,
-            components: [
-              {
-                type: 2,
-                style: 3,
-                label: "Pass Interview",
-                custom_id: `interview_pass:${applicantId}`
-              },
-              {
-                type: 2,
-                style: 4,
-                label: "Fail Interview",
-                custom_id: `interview_fail:${applicantId}`
-              }
-            ]
-          }]
-        });
+const logChannel = await client.channels.fetch(INTERVIEW_LOG_CHANNEL_ID);
+
+await logChannel.send({
+  embeds: [
+    new EmbedBuilder()
+      .setTitle("🗂 Interview In Progress")
+      .setColor(0x5865f2)
+      .addFields(
+        { name: "Applicant", value: `<@${applicantId}>` },
+        { name: "Channel", value: `<#${channel.id}>` }
+      )
+      .setTimestamp()
+  ],
+  components: [
+    {
+      type: 1,
+      components: [
+        {
+          type: 2,
+          style: 3,
+          label: "Pass Interview",
+          custom_id: `interview_pass:${applicantId}`
+        },
+        {
+          type: 2,
+          style: 4,
+          label: "Fail Interview",
+          custom_id: `interview_fail:${applicantId}`
+        }
+      ]
+    }
+  ]
+});
+
 
       } catch (err) {
         console.error("[INTERVIEW CREATE] Failed:", err);
@@ -202,6 +217,34 @@ client.on("interactionCreate", async (interaction) => {
 
     await interaction.update({ embeds: [embed], components: [] });
 
+    if (action === "assessment_pass") {
+  await interaction.channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setTitle("▶ Interview Available")
+        .setColor(0x5865f2)
+        .setDescription(
+          "This applicant has passed the assessment.\n\n" +
+          "When ready, you can start the interview."
+        )
+        .setTimestamp()
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 1,
+            label: "Start Interview",
+            custom_id: `interview_start:${applicantId}`
+          }
+        ]
+      }
+    ]
+  });
+}
+
     const user = await client.users.fetch(applicantId);
     await user.send({
       components: action.startsWith("assessment")
@@ -213,22 +256,6 @@ client.on("interactionCreate", async (interaction) => {
             : buildInterviewFailedDM(user.username, feedback)),
       flags: 32768
     });
-
-    if (action.startsWith("assessment") && passed) {
-      const logChannel = await client.channels.fetch(INTERVIEW_LOG_CHANNEL_ID);
-      await logChannel.send({
-        content: `<@${applicantId}>`,
-        components: [{
-          type: 1,
-          components: [{
-            type: 2,
-            style: 1,
-            label: "Start Interview",
-            custom_id: `interview_start:${applicantId}`
-          }]
-        }]
-      });
-    }
 
     if (action.startsWith("interview")) {
       const channel = interaction.channel;
